@@ -1,20 +1,26 @@
 """
 LLM API 调用封装
-支持 OpenAI 兼容接口（通过环境变量配置）
+支持 OpenAI 兼容接口，通过 .env 文件或环境变量配置
 """
 
 import os
 import json
 import requests
+from pathlib import Path
 from typing import Generator
 
-# 配置（通过环境变量设置，或在 .env 文件中配置）
+from dotenv import load_dotenv
+
+# 加载 .env 文件（agent/.env 或项目根目录 .env）
+_env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(_env_path)
+
 API_BASE = os.environ.get("LLM_API_BASE", "https://api.openai.com/v1")
 API_KEY = os.environ.get("LLM_API_KEY", "")
 MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
 
 if not API_KEY:
-    print("[警告] 未设置 LLM_API_KEY 环境变量，请通过 export LLM_API_KEY=xxx 设置")
+    print("[警告] 未设置 LLM_API_KEY，请在 agent/.env 文件中配置或通过 export LLM_API_KEY=xxx 设置")
 
 
 def chat_stream(messages: list, temperature: float = 0.7) -> Generator[str, None, None]:
