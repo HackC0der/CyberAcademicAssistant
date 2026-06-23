@@ -254,10 +254,13 @@ function sendMessage() {
     updateBtnState();
     renderSidebar();
 
+    // 构建历史对话（最近 10 条，包含刚保存的用户消息）
+    const history = session.messages.slice(-10);
+
     fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history: history }),
         signal: abortController.signal,
     }).then(response => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -37,10 +37,20 @@ def stats():
     return jsonify(store.get_stats())
 
 
-def extract_keywords(query: str) -> str:
-    """用 LLM 从用户查询中提取英文搜索关键词"""
+def extract_keywords(query: str, history: list = None) -> str:
+    """用 LLM 从用户查询中提取英文搜索关键词，结合历史对话上下文"""
+    # 如果有历史对话，构建上下文摘要帮助理解 "再来20篇" 这类指代性请求
+    context_block = ""
+    if history:
+        recent = history[-6:]  # 取最近 3 轮对话
+        context_block = "\n\nRecent conversation context:\n"
+        for msg in recent:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")[:300]
+            context_block += f"{role}: {content}\n"
+
     messages = [
-        {"role": "system", "content": "You are a keyword extractor. Given a research topic description (possibly in Chinese), extract 5-10 English search keywords/phrases suitable for searching academic papers. Output ONLY the keywords, separated by spaces, no explanations. Example input: '我对联邦学习中的隐私攻击感兴趣' Output: federated learning privacy attack gradient leakage membership inference"},
+        {"role": "system", "content": f"You are a keyword extractor for academic paper search.{context_block}\nGiven the latest user message and the conversation context above, extract 5-10 English search keywords/phrases suitable for searching academic papers. If the user's message refers to a previous topic (e.g. 'more papers', 'show me 20 more'), infer the topic from context. Output ONLY the keywords, separated by spaces, no explanations."},
         {"role": "user", "content": query},
     ]
     keywords = chat_sync(messages, temperature=0.1)
@@ -52,13 +62,15 @@ def chat():
     """对话接口 - SSE 流式响应，带真实进度"""
     data = request.get_json()
     user_query = data.get("message", "").strip()
+    # 历史对话（前端传入，用于上下文连贯）
+    history = data.get("history", [])
     if not user_query:
         return jsonify({"error": "消息不能为空"}), 400
 
     def generate():
         # ── Stage 1: 提取关键词 (0% → 30%) ──
         yield _progress(5, "正在分析您的课题...")
-        keywords = extract_keywords(user_query)
+        keywords = extract_keywords(user_query, history)
         yield _progress(25, f"已提取关键词: {keywords}")
         yield _progress(30, "关键词提取完成")
 
@@ -87,13 +99,26 @@ def chat():
 3. 对每篇论文，简要说明它与用户课题的关联（1-2句话）
 4. 在最后给出一个简短的总结，归纳这些论文的共同主题
 
+当用户要求"更多论文"或"再推荐一些"时，继续推荐之前未提及的论文，保持同一研究主题。
+
 输出格式要求：
 - 使用 Markdown 格式
 - 每篇论文用编号列表，格式：**[序号] 会议 年份 - 标题**
 - 关联说明紧跟其后，缩进显示
 - 最后用 "---" 分隔，加上"总结"部分"""
 
-        user_prompt = f"""我的研究课题/兴趣:
+        # 构建 LLM 消息：system + 历史对话摘要 + 当前请求
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # 添加历史对话（仅取最近几轮，避免 token 过长）
+        if history:
+            for msg in history[-6:]:
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", "")[:500],
+                })
+
+        user_prompt = f"""当前请求:
 {user_query}
 
 提取的搜索关键词: {keywords}
@@ -101,12 +126,9 @@ def chat():
 以下是从论文库中初步筛选出的候选论文（按相关度排序）:
 {papers_context}
 
-请从中选出最相关的论文，并解释它们与我课题的关联。用中文回答。"""
+请从中选出最相关的论文，并解释它们与我课题的关联。如果是"更多论文"的请求，请推荐之前未提及的论文。用中文回答。"""
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        messages.append({"role": "user", "content": user_prompt})
 
         yield _progress(55, "AI 正在语义分析与排序...")
         token_count = 0
