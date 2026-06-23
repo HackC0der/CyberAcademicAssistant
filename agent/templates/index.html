@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文献匹配智能体 - 四大顶会论文检索</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Markdown 渲染 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>📚 文献匹配</h2>
+                <button id="new-chat-btn" title="新对话">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="sidebar-content">
+                <div id="chat-history"></div>
+            </div>
+            <div class="sidebar-footer">
+                <div id="stats-info" class="stats-info">加载中...</div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 消息区域 -->
+            <div class="chat-container" id="chat-container">
+                <!-- 欢迎页 -->
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-icon">📚</div>
+                    <h1>四大顶会文献匹配智能体</h1>
+                    <p>基于 NDSS、CCS、S&P、USENIX Security 2018-2026 年论文库</p>
+                    <p>描述你的研究课题，AI 帮你找到最相关的论文</p>
+                    <div class="example-queries">
+                        <button class="example-btn" data-query="我对联邦学习中的隐私攻击感兴趣，特别是成员推理攻击和梯度泄露攻击">联邦学习隐私攻击</button>
+                        <button class="example-btn" data-query="我正在研究大语言模型的安全性，包括越狱攻击、提示注入和对抗样本">LLM 安全性研究</button>
+                        <button class="example-btn" data-query="我关注物联网设备的安全分析，特别是固件分析和漏洞检测">IoT 固件安全分析</button>
+                        <button class="example-btn" data-query="我在做区块链智能合约的安全研究，包括形式化验证和自动化漏洞检测">智能合约安全</button>
+                    </div>
+                </div>
+
+                <!-- 消息列表 -->
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea
+                        id="user-input"
+                        placeholder="描述你的研究课题，例如：我对侧信道攻击感兴趣..."
+                        rows="1"
+                        autofocus
+                    ></textarea>
+                    <button id="send-btn" title="发送">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-hint">按 Enter 发送，Shift+Enter 换行 | 基于 TF-IDF 初筛 + LLM 语义排序</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
