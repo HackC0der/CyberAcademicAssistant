@@ -1,6 +1,6 @@
 /**
  * 文献匹配智能体 - 前端交互逻辑
- * 支持多会话持久化存储与切换
+ * 支持多会话持久化存储与切换，进行中的请求跨会话保持
  */
 
 const chatContainer = document.getElementById('chat-container');
@@ -14,12 +14,17 @@ const chatHistory = document.getElementById('chat-history');
 
 const STORAGE_KEY = 'literature_agent_sessions';
 
-// ========== 会话管理 ==========
+// ========== 全局状态 ==========
+let currentSessionId = null;
+
+// 进行中的请求跟踪：sessionId → { fullText, progress, stage, reader, abortController }
+const activeRequests = new Map();
+
+// ========== 会话持久化 ==========
 
 function loadAllSessions() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-    } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
 }
 
 function saveAllSessions(sessions) {
@@ -33,52 +38,45 @@ function getSession(id) {
 function saveSession(session) {
     const sessions = loadAllSessions();
     const idx = sessions.findIndex(s => s.id === session.id);
-    if (idx >= 0) {
-        sessions[idx] = session;
-    } else {
-        sessions.unshift(session);
-    }
+    if (idx >= 0) sessions[idx] = session;
+    else sessions.unshift(session);
     saveAllSessions(sessions);
     renderSidebar();
 }
 
 function deleteSession(id) {
+    // 如果有进行中的请求，取消它
+    const req = activeRequests.get(id);
+    if (req) {
+        req.abortController.abort();
+        activeRequests.delete(id);
+    }
+
     const sessions = loadAllSessions().filter(s => s.id !== id);
     saveAllSessions(sessions);
     if (currentSessionId === id) {
-        if (sessions.length > 0) {
-            switchSession(sessions[0].id);
-        } else {
-            newChat();
-        }
+        if (sessions.length > 0) switchSession(sessions[0].id);
+        else newChat();
     } else {
         renderSidebar();
     }
 }
 
 function generateSessionTitle(messages) {
-    // 取第一条用户消息作为标题
     const first = messages.find(m => m.role === 'user');
     if (!first) return '新对话';
     const text = first.content.trim();
     return text.length > 28 ? text.slice(0, 28) + '...' : text;
 }
 
-// ========== 当前会话状态 ==========
-let currentSessionId = null;
-let isSending = false;
-
 // ========== 初始化 ==========
+
 document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     setupEventListeners();
     renderSidebar();
-
-    // 恢复上次的会话，或显示欢迎页
     const sessions = loadAllSessions();
-    if (sessions.length > 0) {
-        switchSession(sessions[0].id);
-    }
+    if (sessions.length > 0) switchSession(sessions[0].id);
 });
 
 function loadStats() {
@@ -86,23 +84,17 @@ function loadStats() {
         .then(r => r.json())
         .then(data => {
             const lines = [`共 ${data.total} 篇论文`];
-            for (const [conf, count] of Object.entries(data.by_conference)) {
+            for (const [conf, count] of Object.entries(data.by_conference))
                 lines.push(`${conf}: ${count} 篇`);
-            }
             statsInfo.innerHTML = lines.join('<br>');
         })
-        .catch(() => {
-            statsInfo.textContent = '统计信息加载失败';
-        });
+        .catch(() => { statsInfo.textContent = '统计信息加载失败'; });
 }
 
 function setupEventListeners() {
     sendBtn.addEventListener('click', sendMessage);
     userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
     userInput.addEventListener('input', autoResize);
     newChatBtn.addEventListener('click', newChat);
@@ -120,37 +112,37 @@ function autoResize() {
     userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
 }
 
-// ========== 侧边栏渲染 ==========
+// ========== 侧边栏 ==========
 
 function renderSidebar() {
     const sessions = loadAllSessions();
     chatHistory.innerHTML = '';
-
     if (sessions.length === 0) {
         chatHistory.innerHTML = '<div class="sidebar-empty">暂无对话</div>';
         return;
     }
-
     sessions.forEach(session => {
         const item = document.createElement('div');
         item.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
-
+        // 进行中有请求时显示小圆点
+        if (activeRequests.has(session.id)) {
+            const dot = document.createElement('span');
+            dot.className = 'session-busy';
+            dot.textContent = '●';
+            item.appendChild(dot);
+        }
         const title = document.createElement('span');
         title.className = 'session-title';
         title.textContent = session.title || '新对话';
         title.title = session.title || '新对话';
-
         const delBtn = document.createElement('button');
         delBtn.className = 'session-delete';
         delBtn.innerHTML = '×';
         delBtn.title = '删除对话';
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm('确定删除此对话？')) {
-                deleteSession(session.id);
-            }
+            if (confirm('确定删除此对话？')) deleteSession(session.id);
         });
-
         item.addEventListener('click', () => switchSession(session.id));
         item.appendChild(title);
         item.appendChild(delBtn);
@@ -161,17 +153,31 @@ function renderSidebar() {
 // ========== 会话切换 ==========
 
 function switchSession(id) {
+    if (currentSessionId === id) return;
+    currentSessionId = id;
     const session = getSession(id);
     if (!session) return;
 
-    currentSessionId = id;
     welcomeScreen.classList.add('hidden');
     messagesDiv.innerHTML = '';
 
-    // 渲染该会话的所有消息
+    // 渲染已保存的消息
     (session.messages || []).forEach(msg => {
         appendMessageToDOM(msg.role, msg.content);
     });
+
+    // 如果该会话有进行中的请求，挂载活跃的进度条和结果区
+    const req = activeRequests.get(id);
+    if (req) {
+        const aiMsg = appendMessageToDOM('assistant', '');
+        const contentEl = aiMsg.querySelector('.message-content');
+        contentEl.innerHTML = '';
+        contentEl.appendChild(req.progressEl);
+        contentEl.appendChild(req.resultEl);
+        updateBtnState();
+    } else {
+        updateBtnState();
+    }
 
     renderSidebar();
     scrollToBottom();
@@ -186,132 +192,143 @@ function newChat() {
     welcomeScreen.classList.remove('hidden');
     userInput.value = '';
     userInput.style.height = 'auto';
+    updateBtnState();
     renderSidebar();
+}
+
+// ========== 按钮状态 ==========
+
+function updateBtnState() {
+    // 当前会话有进行中的请求 → 禁用
+    const sending = currentSessionId && activeRequests.has(currentSessionId);
+    sendBtn.disabled = !!sending;
+    userInput.disabled = !!sending;
 }
 
 // ========== 发送消息 ==========
 
 function sendMessage() {
     const text = userInput.value.trim();
-    if (!text || isSending) return;
+    if (!text) return;
+    if (currentSessionId && activeRequests.has(currentSessionId)) return;
 
     welcomeScreen.classList.add('hidden');
 
-    // 如果没有当前会话，创建新会话
+    // 创建新会话
     if (!currentSessionId) {
         currentSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        const newSession = {
+        saveSession({
             id: currentSessionId,
             title: generateSessionTitle([{ role: 'user', content: text }]),
             messages: [],
             createdAt: Date.now(),
-        };
-        saveSession(newSession);
+        });
     }
 
     // 保存用户消息
     const session = getSession(currentSessionId);
     session.messages.push({ role: 'user', content: text });
-    // 如果是第一条消息，更新标题
-    if (session.messages.filter(m => m.role === 'user').length === 1) {
+    if (session.messages.filter(m => m.role === 'user').length === 1)
         session.title = generateSessionTitle(session.messages);
-    }
     saveSession(session);
 
-    // DOM 操作
+    // DOM
     appendMessageToDOM('user', text);
     userInput.value = '';
     userInput.style.height = 'auto';
-    isSending = true;
-    sendBtn.disabled = true;
-    userInput.disabled = true;
 
-    // AI 消息占位（含进度条）
+    // 进度条 + 结果区
+    const progressEl = createProgressBar();
+    const resultEl = document.createElement('div');
     const aiMsg = appendMessageToDOM('assistant', '');
     const contentEl = aiMsg.querySelector('.message-content');
-    const progressEl = createProgressBar();
     contentEl.innerHTML = '';
     contentEl.appendChild(progressEl);
-    const resultEl = document.createElement('div');
     contentEl.appendChild(resultEl);
 
-    let fullText = '';
-    let gotContent = false;
+    // 跟踪请求
+    const abortController = new AbortController();
+    const reqState = { fullText: '', progress: 0, stage: '', progressEl, resultEl, abortController };
+    const sid = currentSessionId; // 捕获当前会话 ID
+    activeRequests.set(sid, reqState);
+    updateBtnState();
+    renderSidebar();
 
     fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
+        signal: abortController.signal,
     }).then(response => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
 
         function read() {
             reader.read().then(({ done, value }) => {
-                if (done) {
-                    markProgressDone(progressEl);
-                    finalizeMessage(resultEl, fullText);
-                    finishSending(fullText);
-                    return;
-                }
-
+                if (done) { onComplete(sid); return; }
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
                 buffer = lines.pop();
-
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
                     try {
                         const data = JSON.parse(line.slice(6));
                         if (data.progress !== undefined) {
-                            updateProgress(progressEl, data.progress, data.stage);
+                            reqState.progress = data.progress;
+                            reqState.stage = data.stage;
+                            // 只在当前会话可见时更新 DOM
+                            if (currentSessionId === sid)
+                                updateProgress(progressEl, data.progress, data.stage);
                         }
                         if (data.token) {
-                            if (!gotContent) {
-                                resultEl.innerHTML = '';
-                                gotContent = true;
-                            }
-                            fullText += data.token;
-                            resultEl.innerHTML = renderMarkdown(fullText);
+                            reqState.fullText += data.token;
+                            if (currentSessionId === sid)
+                                resultEl.innerHTML = renderMarkdown(reqState.fullText);
                             scrollToBottom();
                         }
-                        if (data.done) {
-                            markProgressDone(progressEl);
-                            finalizeMessage(resultEl, fullText);
-                            finishSending(fullText);
-                        }
+                        if (data.done) { onComplete(sid); return; }
                     } catch (e) {}
                 }
                 read();
             }).catch(err => {
-                resultEl.innerHTML = `<p style="color: #ef4444;">读取响应失败: ${err.message}</p>`;
-                finishSending('');
+                if (err.name === 'AbortError') return;
+                reqState.fullText = `<p style="color: #ef4444;">读取响应失败: ${err.message}</p>`;
+                if (currentSessionId === sid) resultEl.innerHTML = reqState.fullText;
+                onComplete(sid);
             });
         }
         read();
     }).catch(err => {
-        resultEl.innerHTML = `<p style="color: #ef4444;">请求失败: ${err.message}</p>`;
-        finishSending('');
+        if (err.name === 'AbortError') return;
+        reqState.fullText = `<p style="color: #ef4444;">请求失败: ${err.message}</p>`;
+        if (currentSessionId === sid) resultEl.innerHTML = reqState.fullText;
+        onComplete(sid);
     });
 }
 
-function finishSending(aiText) {
-    isSending = false;
-    sendBtn.disabled = false;
-    userInput.disabled = false;
-    userInput.focus();
+function onComplete(sid) {
+    const req = activeRequests.get(sid);
+    if (!req) return;
 
-    // 保存 AI 回复到会话
-    if (aiText && currentSessionId) {
-        const session = getSession(currentSessionId);
-        if (session) {
-            session.messages.push({ role: 'assistant', content: aiText });
-            saveSession(session);
-        }
+    // 进度条完成动画（只在可见时）
+    if (currentSessionId === sid) {
+        markProgressDone(req.progressEl);
+        req.resultEl.innerHTML = renderMarkdown(req.fullText);
     }
+
+    // 保存 AI 回复
+    const session = getSession(sid);
+    if (session && req.fullText) {
+        session.messages.push({ role: 'assistant', content: req.fullText });
+        saveSession(session);
+    }
+
+    // 清理
+    activeRequests.delete(sid);
+    updateBtnState();
+    renderSidebar();
 }
 
 // ========== DOM 操作 ==========
@@ -326,10 +343,6 @@ function appendMessageToDOM(role, content) {
     messagesDiv.appendChild(div);
     scrollToBottom();
     return div;
-}
-
-function finalizeMessage(contentEl, text) {
-    if (text) contentEl.innerHTML = renderMarkdown(text);
 }
 
 function renderMarkdown(text) {

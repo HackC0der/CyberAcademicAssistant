@@ -154,6 +154,19 @@ body {
     padding: 24px 0;
 }
 
+.session-busy {
+    color: var(--accent);
+    font-size: 8px;
+    margin-right: 6px;
+    animation: pulse 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
 /* ========== 主内容区 ========== */
 .main-content {
     flex: 1;
