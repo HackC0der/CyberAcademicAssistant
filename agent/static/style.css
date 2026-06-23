@@ -363,8 +363,18 @@ body.resizing * {
 
 .message {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     animation: fadeIn 0.3s ease;
+    max-width: 100%;
+}
+
+/* 用户消息：头像在右，内容在左 */
+.message.user {
+    flex-direction: row-reverse;
+}
+
+.message.user .message-content {
+    text-align: left;
 }
 
 @keyframes fadeIn {
@@ -373,8 +383,8 @@ body.resizing * {
 }
 
 .message-avatar {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -389,6 +399,19 @@ body.resizing * {
 
 .message.assistant .message-avatar {
     background: var(--accent);
+}
+
+/* 不同智能体头像颜色 */
+.message.assistant[data-agent="literature"] .message-avatar {
+    background: #6c5ce7;
+}
+
+.message.assistant[data-agent="reviewer"] .message-avatar {
+    background: #e74c3c;
+}
+
+.message.assistant[data-agent="mentor"] .message-avatar {
+    background: #27ae60;
 }
 
 .message-content {

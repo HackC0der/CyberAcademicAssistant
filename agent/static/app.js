@@ -214,7 +214,10 @@ function switchSession(id) {
 
     welcomeScreen.classList.add('hidden');
     messagesDiv.innerHTML = '';
-    (session.messages || []).forEach(msg => appendMessageToDOM(msg.role, msg.content));
+    (session.messages || []).forEach(msg => {
+        const agentType = msg.persona || (session.mode === 'debate' ? 'reviewer' : 'literature');
+        appendMessageToDOM(msg.role, msg.content, agentType);
+    });
 
     const req = activeRequests.get(id);
     if (req) {
@@ -267,20 +270,24 @@ async function sendMessage() {
     if (session.messages.filter(m => m.role === 'user').length === 1) session.title = generateSessionTitle(session.messages);
     await saveSession(session);
 
+    // 记录当前 persona 用于后续保存 AI 回复
+    const requestPersona = currentPersona;
+
     // DOM
     appendMessageToDOM('user', text);
     userInput.value = ''; userInput.style.height = 'auto';
 
-    // 进度条 + 结果区
+    // 进度条 + 结果区（用请求时的 persona 决定头像）
+    const agentType = currentMode === 'debate' ? requestPersona : 'literature';
     const progressEl = createProgressBar();
     const resultEl = document.createElement('div');
-    const aiMsg = appendMessageToDOM('assistant', '');
+    const aiMsg = appendMessageToDOM('assistant', '', agentType);
     const contentEl = aiMsg.querySelector('.message-content');
     contentEl.innerHTML = ''; contentEl.appendChild(progressEl); contentEl.appendChild(resultEl);
 
     // 请求
     const abortController = new AbortController();
-    const reqState = { fullText: '', progressEl, resultEl, abortController };
+    const reqState = { fullText: '', progressEl, resultEl, abortController, persona: agentType };
     const sid = currentSessionId;
     activeRequests.set(sid, reqState);
     updateBtnState(); renderSidebar();
@@ -337,16 +344,28 @@ function onComplete(sid) {
     if (!req) return;
     if (currentSessionId === sid) { markProgressDone(req.progressEl); req.resultEl.innerHTML = renderMarkdown(req.fullText); }
     const session = getCachedSession(sid);
-    if (session && req.fullText) { session.messages.push({ role: 'assistant', content: req.fullText }); saveSession(session); }
+    if (session && req.fullText) { session.messages.push({ role: 'assistant', content: req.fullText, persona: req.persona || 'literature' }); saveSession(session); }
     activeRequests.delete(sid); updateBtnState(); renderSidebar();
 }
 
 // ========== DOM ==========
 
-function appendMessageToDOM(role, content) {
+function getAgentAvatar() {
+    if (currentMode === 'debate') return currentPersona === 'mentor' ? '🎓' : '🔍';
+    return '📚';
+}
+
+function getAgentType() {
+    if (currentMode === 'debate') return currentPersona === 'mentor' ? 'mentor' : 'reviewer';
+    return 'literature';
+}
+
+function appendMessageToDOM(role, content, agentType) {
     const div = document.createElement('div');
     div.className = `message ${role}`;
-    div.innerHTML = `<div class="message-avatar">${role === 'user' ? '👤' : '📚'}</div><div class="message-content">${role === 'user' ? escapeHtml(content) : renderMarkdown(content)}</div>`;
+    const avatar = role === 'user' ? '👤' : getAgentAvatar();
+    const dataAttr = role === 'assistant' ? ` data-agent="${agentType || getAgentType()}"` : '';
+    div.innerHTML = `<div class="message-avatar"${dataAttr}>${avatar}</div><div class="message-content">${role === 'user' ? escapeHtml(content) : renderMarkdown(content)}</div>`;
     messagesDiv.appendChild(div); scrollToBottom();
     return div;
 }
