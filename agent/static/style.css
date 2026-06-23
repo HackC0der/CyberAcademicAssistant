@@ -13,7 +13,8 @@
     --accent: #7c6fe0;
     --accent-hover: #6a5dd8;
     --radius: 12px;
-    --max-width: 768px;
+    --sidebar-width: 260px;
+    --content-max-width: 768px;
 }
 
 /* ========== 基础重置 ========== */
@@ -39,12 +40,14 @@ body {
 
 /* ========== 侧边栏 ========== */
 .sidebar {
-    width: 260px;
+    width: var(--sidebar-width);
+    min-width: 180px;
+    max-width: 500px;
     background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    overflow: hidden;
 }
 
 .sidebar-header {
@@ -175,6 +178,32 @@ body {
     min-width: 0;
 }
 
+/* ========== 拖拽分隔条 ========== */
+.resize-handle {
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    flex-shrink: 0;
+    transition: background 0.15s;
+    position: relative;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+    background: var(--accent);
+}
+
+/* 拖拽时禁止选中文字 */
+body.resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+body.resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
 .chat-container {
     flex: 1;
     overflow-y: auto;
@@ -242,7 +271,7 @@ body {
 
 /* ========== 消息区 ========== */
 .messages {
-    max-width: var(--max-width);
+    max-width: var(--content-max-width);
     width: 100%;
     margin: 0 auto;
     padding: 20px 24px;
@@ -331,7 +360,7 @@ body {
 /* ========== 输入区 ========== */
 .input-area {
     padding: 12px 24px 16px;
-    max-width: var(--max-width);
+    max-width: var(--content-max-width);
     margin: 0 auto;
     width: 100%;
 }
@@ -519,6 +548,9 @@ body {
 /* ========== 响应式 ========== */
 @media (max-width: 768px) {
     .sidebar {
+        display: none;
+    }
+    .resize-handle {
         display: none;
     }
     .messages {

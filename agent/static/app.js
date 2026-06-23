@@ -74,6 +74,7 @@ function generateSessionTitle(messages) {
 document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     setupEventListeners();
+    initResize();
     renderSidebar();
     const sessions = loadAllSessions();
     if (sessions.length > 0) switchSession(sessions[0].id);
@@ -110,6 +111,55 @@ function setupEventListeners() {
 function autoResize() {
     userInput.style.height = 'auto';
     userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
+}
+
+// ========== 侧边栏拖拽调整宽度 ==========
+
+function initResize() {
+    const handle = document.getElementById('resize-handle');
+    const sidebar = document.querySelector('.sidebar');
+    const root = document.documentElement;
+    const SIDEBAR_KEY = 'literature_agent_sidebar_width';
+
+    // 恢复上次保存的宽度
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    if (saved) {
+        const w = parseInt(saved, 10);
+        if (w >= 180 && w <= 500) {
+            root.style.setProperty('--sidebar-width', w + 'px');
+        }
+    }
+
+    let startX, startWidth;
+
+    function onMouseDown(e) {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = sidebar.getBoundingClientRect().width;
+        handle.classList.add('active');
+        document.body.classList.add('resizing');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }
+
+    function onMouseMove(e) {
+        const dx = e.clientX - startX;
+        let newWidth = startWidth + dx;
+        newWidth = Math.max(180, Math.min(500, newWidth));
+        root.style.setProperty('--sidebar-width', newWidth + 'px');
+    }
+
+    function onMouseUp() {
+        handle.classList.remove('active');
+        document.body.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        // 保存宽度
+        const w = sidebar.getBoundingClientRect().width;
+        localStorage.setItem(SIDEBAR_KEY, Math.round(w));
+    }
+
+    handle.addEventListener('mousedown', onMouseDown);
 }
 
 // ========== 侧边栏 ==========
