@@ -6,6 +6,7 @@
 import json
 import sys
 import os
+import threading
 from pathlib import Path
 
 from flask import Flask, render_template, request, Response, jsonify, stream_with_context
@@ -15,8 +16,54 @@ from llm_client import chat_stream, chat_sync
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SESSIONS_FILE = Path(__file__).resolve().parent / "data" / "sessions.json"
 
 app = Flask(__name__)
+
+# ========== 会话持久化（服务端 JSON 文件存储） ==========
+
+_sessions_lock = threading.Lock()
+
+
+def _ensure_data_dir():
+    SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _load_sessions_raw() -> list:
+    _ensure_data_dir()
+    if not SESSIONS_FILE.exists():
+        return []
+    try:
+        return json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _save_sessions_raw(sessions: list):
+    _ensure_data_dir()
+    SESSIONS_FILE.write_text(json.dumps(sessions, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_sessions() -> list:
+    with _sessions_lock:
+        return _load_sessions_raw()
+
+
+def save_session(session: dict):
+    with _sessions_lock:
+        sessions = _load_sessions_raw()
+        idx = next((i for i, s in enumerate(sessions) if s["id"] == session["id"]), -1)
+        if idx >= 0:
+            sessions[idx] = session
+        else:
+            sessions.insert(0, session)
+        _save_sessions_raw(sessions)
+
+
+def delete_session(sid: str):
+    with _sessions_lock:
+        sessions = [s for s in _load_sessions_raw() if s["id"] != sid]
+        _save_sessions_raw(sessions)
 
 # 初始化论文库
 print("正在加载论文数据...")
@@ -35,6 +82,51 @@ def index():
 def stats():
     """论文库统计"""
     return jsonify(store.get_stats())
+
+
+# ========== 会话 API ==========
+
+@app.route("/api/sessions", methods=["GET"])
+def api_list_sessions():
+    """获取所有会话列表"""
+    return jsonify(load_sessions())
+
+
+@app.route("/api/sessions", methods=["POST"])
+def api_create_session():
+    """创建新会话"""
+    data = request.get_json()
+    session = {
+        "id": "sess_" + str(int(__import__("time").time() * 1000)) + "_" + __import__("random").choice("abcdefghijklmnopqrstuvwxyz0123456789") * 4,
+        "title": data.get("title", "新对话"),
+        "messages": [],
+        "createdAt": int(__import__("time").time() * 1000),
+    }
+    save_session(session)
+    return jsonify(session)
+
+
+@app.route("/api/sessions/<sid>", methods=["PUT"])
+def api_update_session(sid):
+    """更新会话（消息、标题等）"""
+    data = request.get_json()
+    sessions = load_sessions()
+    session = next((s for s in sessions if s["id"] == sid), None)
+    if not session:
+        return jsonify({"error": "会话不存在"}), 404
+    # 合并更新字段
+    for key in ("title", "messages", "createdAt"):
+        if key in data:
+            session[key] = data[key]
+    save_session(session)
+    return jsonify(session)
+
+
+@app.route("/api/sessions/<sid>", methods=["DELETE"])
+def api_delete_session(sid):
+    """删除会话"""
+    delete_session(sid)
+    return jsonify({"ok": True})
 
 
 def extract_keywords(query: str, history: list = None) -> str:

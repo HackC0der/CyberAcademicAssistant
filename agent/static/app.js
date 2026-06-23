@@ -1,6 +1,6 @@
 /**
  * 文献匹配智能体 - 前端交互逻辑
- * 支持多会话持久化存储与切换，进行中的请求跨会话保持
+ * 支持多会话持久化存储（服务端）与切换，进行中的请求跨会话保持
  */
 
 const chatContainer = document.getElementById('chat-container');
@@ -12,53 +12,77 @@ const newChatBtn = document.getElementById('new-chat-btn');
 const statsInfo = document.getElementById('stats-info');
 const chatHistory = document.getElementById('chat-history');
 
-const STORAGE_KEY = 'literature_agent_sessions';
-
 // ========== 全局状态 ==========
 let currentSessionId = null;
+// 本地会话缓存（从服务端加载）
+let sessionsCache = [];
 
-// 进行中的请求跟踪：sessionId → { fullText, progress, stage, reader, abortController }
+// 进行中的请求跟踪：sessionId → { fullText, progress, stage, progressEl, resultEl, abortController }
 const activeRequests = new Map();
 
-// ========== 会话持久化 ==========
+// ========== 会话持久化（服务端 API） ==========
 
-function loadAllSessions() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-    catch { return []; }
+async function loadAllSessions() {
+    try {
+        const resp = await fetch('/api/sessions');
+        sessionsCache = await resp.json();
+    } catch { sessionsCache = []; }
+    return sessionsCache;
 }
 
-function saveAllSessions(sessions) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+function getCachedSession(id) {
+    return sessionsCache.find(s => s.id === id) || null;
 }
 
-function getSession(id) {
-    return loadAllSessions().find(s => s.id === id) || null;
-}
-
-function saveSession(session) {
-    const sessions = loadAllSessions();
-    const idx = sessions.findIndex(s => s.id === session.id);
-    if (idx >= 0) sessions[idx] = session;
-    else sessions.unshift(session);
-    saveAllSessions(sessions);
+async function saveSession(session) {
+    try {
+        const resp = await fetch(`/api/sessions/${session.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(session),
+        });
+        const updated = await resp.json();
+        // 更新缓存
+        const idx = sessionsCache.findIndex(s => s.id === session.id);
+        if (idx >= 0) sessionsCache[idx] = updated;
+        else sessionsCache.unshift(updated);
+    } catch (e) {
+        console.error('保存会话失败:', e);
+    }
     renderSidebar();
 }
 
-function deleteSession(id) {
-    // 如果有进行中的请求，取消它
+async function deleteSession(id) {
     const req = activeRequests.get(id);
     if (req) {
         req.abortController.abort();
         activeRequests.delete(id);
     }
 
-    const sessions = loadAllSessions().filter(s => s.id !== id);
-    saveAllSessions(sessions);
+    try { await fetch(`/api/sessions/${id}`, { method: 'DELETE' }); } catch {}
+    sessionsCache = sessionsCache.filter(s => s.id !== id);
+
     if (currentSessionId === id) {
-        if (sessions.length > 0) switchSession(sessions[0].id);
+        if (sessionsCache.length > 0) switchSession(sessionsCache[0].id);
         else newChat();
     } else {
         renderSidebar();
+    }
+}
+
+async function createSession(title) {
+    try {
+        const resp = await fetch('/api/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title }),
+        });
+        const session = await resp.json();
+        sessionsCache.unshift(session);
+        return session;
+    } catch (e) {
+        console.error('创建会话失败:', e);
+        return null;
     }
 }
 
@@ -71,13 +95,13 @@ function generateSessionTitle(messages) {
 
 // ========== 初始化 ==========
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     loadStats();
     setupEventListeners();
     initResize();
+    await loadAllSessions();
     renderSidebar();
-    const sessions = loadAllSessions();
-    if (sessions.length > 0) switchSession(sessions[0].id);
+    if (sessionsCache.length > 0) switchSession(sessionsCache[0].id);
 });
 
 function loadStats() {
@@ -165,13 +189,12 @@ function initResize() {
 // ========== 侧边栏 ==========
 
 function renderSidebar() {
-    const sessions = loadAllSessions();
     chatHistory.innerHTML = '';
-    if (sessions.length === 0) {
+    if (sessionsCache.length === 0) {
         chatHistory.innerHTML = '<div class="sidebar-empty">暂无对话</div>';
         return;
     }
-    sessions.forEach(session => {
+    sessionsCache.forEach(session => {
         const item = document.createElement('div');
         item.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
         // 进行中有请求时显示小圆点
@@ -205,7 +228,7 @@ function renderSidebar() {
 function switchSession(id) {
     if (currentSessionId === id) return;
     currentSessionId = id;
-    const session = getSession(id);
+    const session = getCachedSession(id);
     if (!session) return;
 
     welcomeScreen.classList.add('hidden');
@@ -257,7 +280,7 @@ function updateBtnState() {
 
 // ========== 发送消息 ==========
 
-function sendMessage() {
+async function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
     if (currentSessionId && activeRequests.has(currentSessionId)) return;
@@ -266,21 +289,18 @@ function sendMessage() {
 
     // 创建新会话
     if (!currentSessionId) {
-        currentSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        saveSession({
-            id: currentSessionId,
-            title: generateSessionTitle([{ role: 'user', content: text }]),
-            messages: [],
-            createdAt: Date.now(),
-        });
+        const title = generateSessionTitle([{ role: 'user', content: text }]);
+        const newSess = await createSession(title);
+        if (!newSess) return;
+        currentSessionId = newSess.id;
     }
 
     // 保存用户消息
-    const session = getSession(currentSessionId);
+    const session = getCachedSession(currentSessionId);
     session.messages.push({ role: 'user', content: text });
     if (session.messages.filter(m => m.role === 'user').length === 1)
         session.title = generateSessionTitle(session.messages);
-    saveSession(session);
+    await saveSession(session);
 
     // DOM
     appendMessageToDOM('user', text);
@@ -372,7 +392,7 @@ function onComplete(sid) {
     }
 
     // 保存 AI 回复
-    const session = getSession(sid);
+    const session = getCachedSession(sid);
     if (session && req.fullText) {
         session.messages.push({ role: 'assistant', content: req.fullText });
         saveSession(session);
