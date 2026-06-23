@@ -55,11 +55,14 @@ def chat_stream(messages: list, temperature: float = 0.7) -> Generator[str, None
                 break
             try:
                 chunk = json.loads(data)
-                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                choices = chunk.get("choices", [])
+                if not choices:
+                    continue
+                delta = choices[0].get("delta", {})
                 content = delta.get("content", "")
                 if content:
                     yield content
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, IndexError, KeyError):
                 continue
     except requests.exceptions.RequestException as e:
         yield f"\n\n[错误] LLM API 调用失败: {e}"

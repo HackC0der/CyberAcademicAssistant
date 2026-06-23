@@ -49,33 +49,35 @@ def extract_keywords(query: str) -> str:
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    """对话接口 - SSE 流式响应"""
+    """对话接口 - SSE 流式响应，带真实进度"""
     data = request.get_json()
     user_query = data.get("message", "").strip()
     if not user_query:
         return jsonify({"error": "消息不能为空"}), 400
 
-    # 1. 用 LLM 提取英文关键词（支持中文输入）
     def generate():
-        # 先发送状态提示
-        yield f"data: {json.dumps({'token': '🔍 正在分析您的课题并检索相关论文...\n\n'})}\n\n"
-
+        # ── Stage 1: 提取关键词 (0% → 30%) ──
+        yield _progress(5, "正在分析您的课题...")
         keywords = extract_keywords(user_query)
+        yield _progress(25, f"已提取关键词: {keywords}")
+        yield _progress(30, "关键词提取完成")
 
-        # 2. TF-IDF 初筛（用英文关键词搜索）
+        # ── Stage 2: 检索论文库 (30% → 50%) ──
+        yield _progress(35, f"正在从 {len(store.papers)} 篇论文中检索...")
         candidates = store.search(keywords, top_k=30)
+        yield _progress(50, f"找到 {len(candidates)} 篇候选论文")
 
         if not candidates:
             yield f"data: {json.dumps({'token': '未找到相关论文，请尝试换个角度描述您的课题。'})}\n\n"
             yield f"data: {json.dumps({'done': True})}\n\n"
             return
 
-        # 3. 构建候选论文上下文
+        # ── Stage 3: 构建上下文 & 调用 LLM 排序 (50% → 100%) ──
         papers_context = ""
         for i, (paper, score) in enumerate(candidates, 1):
-            papers_context += f"\n[{i}] {paper.conference} {paper.year} - {paper.title}\n摘要: {paper.abstract[:500]}...\n"
+            abstract_part = f"\n摘要: {paper.abstract[:500]}..." if paper.abstract else ""
+            papers_context += f"\n[{i}] {paper.conference} {paper.year} - {paper.title}{abstract_part}\n"
 
-        # 4. 构建 LLM prompt
         system_prompt = """你是一个学术文献匹配助手，专门服务于网络安全领域的研究者。
 你的知识库包含四大顶会（NDSS、CCS、S&P、USENIX Security）2018-2026年的论文。
 
@@ -106,9 +108,17 @@ def chat():
             {"role": "user", "content": user_prompt},
         ]
 
-        # 5. 流式返回 LLM 响应
+        yield _progress(55, "AI 正在语义分析与排序...")
+        token_count = 0
         for token in chat_stream(messages):
+            token_count += 1
+            # 每收到一定量 token 后更新进度（55% → 95%）
+            if token_count % 20 == 0:
+                pct = min(55 + token_count, 95)
+                yield _progress(pct, "AI 正在生成回答...")
             yield f"data: {json.dumps({'token': token})}\n\n"
+
+        yield _progress(100, "完成")
         yield f"data: {json.dumps({'done': True, 'candidate_count': len(candidates)})}\n\n"
 
     return Response(
@@ -116,6 +126,11 @@ def chat():
         content_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _progress(percent: int, stage: str) -> str:
+    """构造进度事件 SSE 数据"""
+    return f"data: {json.dumps({'progress': percent, 'stage': stage})}\n\n"
 
 
 @app.route("/api/search", methods=["POST"])

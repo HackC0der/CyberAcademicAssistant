@@ -87,12 +87,21 @@ function sendMessage() {
     // 禁用输入
     setLoading(true);
 
-    // 添加 AI 消息占位
+    // 添加 AI 消息占位（含进度条）
     const aiMsg = appendMessage('assistant', '');
     const contentEl = aiMsg.querySelector('.message-content');
 
-    // 显示加载动画
-    contentEl.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+    // 创建进度条
+    const progressEl = createProgressBar();
+    contentEl.innerHTML = '';
+    contentEl.appendChild(progressEl);
+
+    // 结果文本容器
+    const resultEl = document.createElement('div');
+    contentEl.appendChild(resultEl);
+
+    let fullText = '';
+    let gotContent = false;
 
     // 发送请求
     fetch('/api/chat', {
@@ -105,36 +114,44 @@ function sendMessage() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let fullText = '';
-        let gotContent = false;
 
         function read() {
             reader.read().then(({ done, value }) => {
                 if (done) {
-                    finalizeMessage(contentEl, fullText);
+                    markProgressDone(progressEl);
+                    finalizeMessage(resultEl, fullText);
                     setLoading(false);
                     return;
                 }
 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                buffer = lines.pop(); // 保留未完成的行
+                buffer = lines.pop();
 
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
                     try {
                         const data = JSON.parse(line.slice(6));
+
+                        // 进度事件
+                        if (data.progress !== undefined) {
+                            updateProgress(progressEl, data.progress, data.stage);
+                        }
+
+                        // 文本 token
                         if (data.token) {
                             if (!gotContent) {
-                                contentEl.innerHTML = '';
+                                resultEl.innerHTML = '';
                                 gotContent = true;
                             }
                             fullText += data.token;
-                            contentEl.innerHTML = renderMarkdown(fullText);
+                            resultEl.innerHTML = renderMarkdown(fullText);
                             scrollToBottom();
                         }
+
                         if (data.done) {
-                            finalizeMessage(contentEl, fullText);
+                            markProgressDone(progressEl);
+                            finalizeMessage(resultEl, fullText);
                             setLoading(false);
                         }
                     } catch (e) {
@@ -144,16 +161,53 @@ function sendMessage() {
 
                 read();
             }).catch(err => {
-                contentEl.innerHTML = `<p style="color: #ef4444;">读取响应失败: ${err.message}</p>`;
+                resultEl.innerHTML = `<p style="color: #ef4444;">读取响应失败: ${err.message}</p>`;
                 setLoading(false);
             });
         }
 
         read();
     }).catch(err => {
-        contentEl.innerHTML = `<p style="color: #ef4444;">请求失败: ${err.message}</p>`;
+        resultEl.innerHTML = `<p style="color: #ef4444;">请求失败: ${err.message}</p>`;
         setLoading(false);
     });
+}
+
+// ========== 进度条 ==========
+function createProgressBar() {
+    const div = document.createElement('div');
+    div.className = 'progress-container';
+    div.innerHTML = `
+        <div class="progress-header">
+            <span class="progress-stage">准备中...</span>
+            <span class="progress-percent">0%</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" style="width: 0%"></div>
+        </div>
+    `;
+    return div;
+}
+
+function updateProgress(el, percent, stage) {
+    const fill = el.querySelector('.progress-fill');
+    const percentEl = el.querySelector('.progress-percent');
+    const stageEl = el.querySelector('.progress-stage');
+    if (fill) fill.style.width = percent + '%';
+    if (percentEl) percentEl.textContent = percent + '%';
+    if (stageEl) stageEl.textContent = stage;
+    scrollToBottom();
+}
+
+function markProgressDone(el) {
+    el.classList.add('done');
+    updateProgress(el, 100, '✅ 完成');
+    // 1.5秒后淡出
+    setTimeout(() => {
+        el.style.transition = 'opacity 0.5s';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 500);
+    }, 1500);
 }
 
 // ========== 消息渲染 ==========
