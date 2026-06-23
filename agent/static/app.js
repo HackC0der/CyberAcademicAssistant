@@ -5,7 +5,8 @@
 
 const chatContainer = document.getElementById('chat-container');
 const messagesDiv = document.getElementById('messages');
-const welcomeScreen = document.getElementById('welcome-screen');
+const welcomeLit = document.getElementById('welcome-literature');
+const welcomeDebate = document.getElementById('welcome-debate');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
 const newChatBtn = document.getElementById('new-chat-btn');
@@ -219,6 +220,17 @@ function autoResize() {
     userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
 }
 
+function hideAllWelcome() {
+    welcomeLit.classList.add('hidden');
+    welcomeDebate.classList.add('hidden');
+}
+
+function showCurrentWelcome() {
+    hideAllWelcome();
+    if (currentMode === 'debate') welcomeDebate.classList.remove('hidden');
+    else welcomeLit.classList.remove('hidden');
+}
+
 // ========== 侧边栏拖拽调整宽度 ==========
 
 function initResize() {
@@ -324,7 +336,7 @@ function switchSession(id) {
     const session = getCachedSession(id);
     if (!session) return;
 
-    welcomeScreen.classList.add('hidden');
+    hideAllWelcome();
     messagesDiv.innerHTML = '';
 
     // 渲染已保存的消息
@@ -355,7 +367,7 @@ function switchSession(id) {
 function newChat() {
     currentSessionId = null;
     messagesDiv.innerHTML = '';
-    welcomeScreen.classList.remove('hidden');
+    showCurrentWelcome();
     userInput.value = '';
     userInput.style.height = 'auto';
     updateBtnState();
@@ -378,7 +390,7 @@ async function sendMessage() {
     if (!text) return;
     if (currentSessionId && activeRequests.has(currentSessionId)) return;
 
-    welcomeScreen.classList.add('hidden');
+    hideAllWelcome();
 
     // 创建新会话
     if (!currentSessionId) {
