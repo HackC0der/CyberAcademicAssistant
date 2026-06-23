@@ -19,27 +19,6 @@
                     </svg>
                 </button>
             </div>
-
-            <!-- 模式切换 -->
-            <div class="mode-switcher">
-                <button class="mode-btn active" data-mode="literature">
-                    📚 文献匹配
-                </button>
-                <button class="mode-btn" data-mode="debate">
-                    ⚔️ Idea 辩论
-                </button>
-            </div>
-
-            <!-- 辩论子模式（仅 debate 模式显示） -->
-            <div class="debate-submode" id="debate-submode" style="display:none;">
-                <button class="submode-btn active" data-submode="reviewer">
-                    🔍 审稿人模式
-                </button>
-                <button class="submode-btn" data-submode="mentor">
-                    🎓 导师模式
-                </button>
-            </div>
-
             <div class="sidebar-content">
                 <div id="chat-history"></div>
             </div>
@@ -49,68 +28,56 @@
             </div>
         </aside>
 
-        <!-- 拖拽分隔条 -->
         <div class="resize-handle" id="resize-handle"></div>
 
         <!-- 主内容区 -->
         <main class="main-content">
             <div class="chat-container" id="chat-container">
-                <!-- 欢迎页 - 文献匹配 -->
-                <div class="welcome-screen" id="welcome-literature">
-                    <div class="welcome-icon">📚</div>
-                    <h1>四大顶会文献匹配</h1>
-                    <p>基于 NDSS、CCS、S&P、USENIX Security 2018-2026 年论文库</p>
-                    <p>描述你的研究课题，AI 帮你找到最相关的论文</p>
-                    <div class="example-queries">
-                        <button class="example-btn" data-query="我对联邦学习中的隐私攻击感兴趣，特别是成员推理攻击和梯度泄露攻击">联邦学习隐私攻击</button>
-                        <button class="example-btn" data-query="我正在研究大语言模型的安全性，包括越狱攻击、提示注入和对抗样本">LLM 安全性研究</button>
-                        <button class="example-btn" data-query="我关注物联网设备的安全分析，特别是固件分析和漏洞检测">IoT 固件安全分析</button>
-                        <button class="example-btn" data-query="我在做区块链智能合约的安全研究，包括形式化验证和自动化漏洞检测">智能合约安全</button>
-                    </div>
-                </div>
-
-                <!-- 欢迎页 - Idea 辩论 -->
-                <div class="welcome-screen" id="welcome-debate" style="display:none;">
-                    <div class="welcome-icon">⚔️</div>
-                    <h1>Idea 辩论智能体</h1>
-                    <p>用批判性对话打磨你的研究想法，找到坚不可摧的核心创新点</p>
+                <!-- 欢迎页 -->
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-icon">🎓</div>
+                    <h1>学术智能体平台</h1>
+                    <p>选择下方的智能体模式，开始你的学术探索</p>
                     <div class="mode-desc">
                         <div class="mode-card">
-                            <h3>🔍 审稿人模式</h3>
-                            <p>扮演顶级会议审稿人，严厉质疑你的假设、边界和贡献。目标是找出所有逻辑裂缝，只留下经得起推敲的核心。</p>
+                            <h3>📚 文献匹配</h3>
+                            <p>基于四大顶会 5500+ 论文，用自然语言描述课题，AI 语义匹配返回最相关论文。</p>
                         </div>
                         <div class="mode-card">
-                            <h3>🎓 导师模式</h3>
-                            <p>扮演资深教授，帮你将模糊的想法打磨为清晰的科学问题和创新点。引导你从问题出发设计方法，而非为了设计而设计。</p>
+                            <h3>⚔️ Idea 辩论</h3>
+                            <p>切换审稿人/导师人格，对你的研究想法进行批判性质疑或建设性引导，打磨核心创新点。</p>
                         </div>
-                    </div>
-                    <div class="example-queries">
-                        <button class="example-btn" data-mode="debate" data-query="我的研究课题是漏洞利用代码移植，我想实现同一程序不同版本之间的exploit自动移植">漏洞利用代码移植</button>
-                        <button class="example-btn" data-mode="debate" data-query="我正在研究基于大模型的自动化漏洞挖掘，想用LLM辅助符号执行来发现深层漏洞">LLM辅助漏洞挖掘</button>
-                        <button class="example-btn" data-mode="debate" data-query="我想研究智能家居设备的隐私安全，特别是通过侧信道推断用户行为">IoT隐私侧信道</button>
                     </div>
                 </div>
 
-                <!-- 消息列表 -->
                 <div class="messages" id="messages"></div>
             </div>
 
             <!-- 输入区域 -->
             <div class="input-area">
+                <!-- 智能体模式选择 -->
+                <div class="agent-bar">
+                    <div class="agent-tabs">
+                        <button class="agent-tab active" data-mode="literature">📚 文献匹配</button>
+                        <button class="agent-tab" data-mode="debate">⚔️ Idea 辩论</button>
+                    </div>
+                    <!-- 辩论人格开关（仅 debate 模式显示） -->
+                    <div class="persona-switch" id="persona-switch" style="display:none;">
+                        <span class="persona-label">人格：</span>
+                        <button class="persona-btn active" data-persona="reviewer">🔍 审稿人</button>
+                        <button class="persona-btn" data-persona="mentor">🎓 导师</button>
+                    </div>
+                </div>
+
                 <div class="input-wrapper">
-                    <textarea
-                        id="user-input"
-                        placeholder="描述你的研究课题..."
-                        rows="1"
-                        autofocus
-                    ></textarea>
+                    <textarea id="user-input" placeholder="描述你的研究课题..." rows="1" autofocus></textarea>
                     <button id="send-btn" title="发送">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
                     </button>
                 </div>
-                <div class="input-hint" id="input-hint">按 Enter 发送，Shift+Enter 换行 | TF-IDF 初筛 + LLM 语义排序</div>
+                <div class="input-hint" id="input-hint">按 Enter 发送，Shift+Enter 换行</div>
             </div>
         </main>
     </div>
