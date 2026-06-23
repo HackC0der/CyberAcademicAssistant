@@ -124,7 +124,6 @@ function switchMode(mode) {
     document.querySelectorAll('.agent-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
     personaSwitch.style.display = mode === 'debate' ? '' : 'none';
     updatePlaceholder();
-    newChat();
 }
 
 function switchPersona(persona) {
@@ -175,10 +174,13 @@ function renderSidebar() {
     sessionsCache.forEach(session => {
         const item = document.createElement('div');
         item.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
-        // 模式图标
+        // 图标：根据最后一条 AI 消息判断
         const icon = document.createElement('span');
         icon.className = 'session-icon';
-        icon.textContent = session.mode === 'debate' ? '⚔️' : '📚';
+        const lastAi = [...(session.messages || [])].reverse().find(m => m.role === 'assistant');
+        if (lastAi && lastAi.persona === 'reviewer') icon.textContent = '🔍';
+        else if (lastAi && lastAi.persona === 'mentor') icon.textContent = '🎓';
+        else icon.textContent = '📚';
         item.appendChild(icon);
         // 忙碌指示
         if (activeRequests.has(session.id)) {
@@ -206,16 +208,11 @@ function switchSession(id) {
     currentSessionId = id;
     const session = getCachedSession(id);
     if (!session) return;
-    // 恢复会话的模式
-    currentMode = session.mode || 'literature';
-    document.querySelectorAll('.agent-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === currentMode));
-    personaSwitch.style.display = currentMode === 'debate' ? '' : 'none';
-    updatePlaceholder();
 
     welcomeScreen.classList.add('hidden');
     messagesDiv.innerHTML = '';
     (session.messages || []).forEach(msg => {
-        const agentType = msg.persona || (session.mode === 'debate' ? 'reviewer' : 'literature');
+        const agentType = msg.persona || 'literature';
         appendMessageToDOM(msg.role, msg.content, agentType);
     });
 
@@ -260,8 +257,6 @@ async function sendMessage() {
         const newSess = await createSession(title);
         if (!newSess) return;
         currentSessionId = newSess.id;
-        newSess.mode = currentMode;
-        await saveSession(newSess);
     }
 
     // 保存用户消息
