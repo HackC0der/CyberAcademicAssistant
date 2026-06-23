@@ -64,10 +64,16 @@ class PaperStore:
             except ValueError:
                 continue
 
-            # 查找 abstracts 文件
+            # 优先加载 abstracts 文件（含摘要）
             abstract_files = list(year_dir.glob("*abstracts*.md"))
-            for f in abstract_files:
-                self._parse_abstracts_file(f, conf_name, year)
+            if abstract_files:
+                for f in abstract_files:
+                    self._parse_abstracts_file(f, conf_name, year)
+            else:
+                # 降级加载 papers 文件（仅标题+作者，无摘要）
+                paper_files = list(year_dir.glob("*papers*.md"))
+                for f in paper_files:
+                    self._parse_papers_file(f, conf_name, year)
 
     def _parse_abstracts_file(self, filepath: Path, conference: str, year: int) -> None:
         """解析 abstracts.md 文件"""
@@ -95,7 +101,31 @@ class PaperStore:
                 ))
                 count += 1
 
-        print(f"  {conference} {year}: {count} 篇论文")
+        print(f"  {conference} {year}: {count} 篇论文 (含摘要)")
+
+    def _parse_papers_file(self, filepath: Path, conference: str, year: int) -> None:
+        """解析 papers.md 文件（仅标题+作者，无摘要）"""
+        try:
+            text = filepath.read_text(encoding="utf-8")
+        except Exception as e:
+            print(f"  [警告] 无法读取 {filepath}: {e}")
+            return
+
+        # 匹配 "序号. 标题" 格式
+        pattern = re.compile(r'^\d+\.\s+(.+)$', re.MULTILINE)
+        count = 0
+        for match in pattern.finditer(text):
+            title = match.group(1).strip()
+            if title and not title.startswith("共") and not title.startswith("#"):
+                self.papers.append(Paper(
+                    conference=conference,
+                    year=year,
+                    title=title,
+                    abstract="",  # 无摘要
+                ))
+                count += 1
+
+        print(f"  {conference} {year}: {count} 篇论文 (仅标题)")
 
     def _build_index(self) -> None:
         """构建 TF-IDF 索引"""
