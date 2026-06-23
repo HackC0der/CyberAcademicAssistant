@@ -96,6 +96,7 @@ function generateSessionTitle(messages) {
 // ========== 初始化 ==========
 
 document.addEventListener('DOMContentLoaded', async () => {
+    initTheme();
     loadStats();
     setupEventListeners();
     initResize();
@@ -103,6 +104,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderSidebar();
     if (sessionsCache.length > 0) switchSession(sessionsCache[0].id);
 });
+
+// ========== 主题切换 ==========
+
+function initTheme() {
+    const THEME_KEY = 'literature_agent_theme';
+    const toggle = document.getElementById('theme-toggle');
+
+    // 恢复保存的主题，默认暗色
+    const saved = localStorage.getItem(THEME_KEY) || 'dark';
+    applyTheme(saved);
+
+    toggle.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        localStorage.setItem(THEME_KEY, next);
+    });
+}
+
+function applyTheme(theme) {
+    const toggle = document.getElementById('theme-toggle');
+    if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        toggle.textContent = '☀️';
+        toggle.title = '切换为暗色主题';
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        toggle.textContent = '🌙';
+        toggle.title = '切换为亮色主题';
+    }
+}
 
 function loadStats() {
     fetch('/api/stats')
