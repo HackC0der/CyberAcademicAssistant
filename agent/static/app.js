@@ -286,7 +286,7 @@ function sendMessage() {
                             reqState.fullText += data.token;
                             if (currentSessionId === sid)
                                 resultEl.innerHTML = renderMarkdown(reqState.fullText);
-                            scrollToBottom();
+                            autoScrollIfAtBottom();
                         }
                         if (data.done) { onComplete(sid); return; }
                     } catch (e) {}
@@ -357,8 +357,18 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function isNearBottom() {
+    // 距离底部 120px 以内视为"在底部"
+    return chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 120;
+}
+
 function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+// 仅在用户已在底部时自动滚动（流式输出用）
+function autoScrollIfAtBottom() {
+    if (isNearBottom()) scrollToBottom();
 }
 
 // ========== 进度条 ==========
@@ -385,7 +395,7 @@ function updateProgress(el, percent, stage) {
     if (fill) fill.style.width = percent + '%';
     if (percentEl) percentEl.textContent = percent + '%';
     if (stageEl) stageEl.textContent = stage;
-    scrollToBottom();
+    autoScrollIfAtBottom();
 }
 
 function markProgressDone(el) {
