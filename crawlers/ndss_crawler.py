@@ -68,6 +68,54 @@ def fetch_page(url: str, retries: int = 3) -> Optional[BeautifulSoup]:
     return None
 
 
+def get_paper_list_old_format(year: int) -> List[Dict[str, str]]:
+    """
+    获取2018-2019年NDSS论文列表（旧格式，h3标签+详情链接）
+
+    Args:
+        year: 年份
+
+    Returns:
+        论文列表
+    """
+    list_url = f"https://www.ndss-symposium.org/ndss{year}/accepted-papers/"
+    print(f"获取 {year} 年论文列表 (旧格式): {list_url}")
+
+    soup = fetch_page(list_url)
+    if not soup:
+        print(f"  [错误] 无法获取 {year} 年论文列表页")
+        return []
+
+    papers = []
+
+    # 2018年：h3.wp-block-heading + PDF链接
+    # 2019年：h3.blog-post-title + 详情链接
+    if year == 2018:
+        h3_items = soup.find_all("h3", class_="wp-block-heading")
+        # 查找所有PDF链接
+        pdf_links = []
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if f"ndss{year}" in href and href.endswith(".pdf"):
+                pdf_links.append(href)
+        for i, h3 in enumerate(h3_items):
+            title = h3.get_text(strip=True)
+            if title and i < len(pdf_links):
+                papers.append({"title": title, "url": pdf_links[i]})
+    else:
+        # 2019年及以后：查找blog-post-title和详情链接
+        h3_items = soup.find_all("h3", class_="blog-post-title")
+        detail_links = soup.find_all("a", class_="paper-link-abs")
+        for i, h3 in enumerate(h3_items):
+            title = h3.get_text(strip=True)
+            if title and i < len(detail_links):
+                url = detail_links[i].get("href", "")
+                papers.append({"title": title, "url": url})
+
+    print(f"  找到 {len(papers)} 篇论文")
+    return papers
+
+
 def get_paper_list(year: int) -> List[Dict[str, str]]:
     """
     获取指定年份的论文列表
@@ -78,6 +126,10 @@ def get_paper_list(year: int) -> List[Dict[str, str]]:
     Returns:
         论文列表，每个元素包含title和url
     """
+    # 2018-2019年使用旧格式
+    if year <= 2019:
+        return get_paper_list_old_format(year)
+
     list_url = f"https://www.ndss-symposium.org/ndss{year}/accepted-papers/"
     print(f"获取 {year} 年论文列表: {list_url}")
 
@@ -116,6 +168,11 @@ def get_paper_detail(url: str) -> Dict[str, str]:
         "pdf_url": "",
         "slides_url": "",
     }
+
+    # 如果URL是PDF文件，直接返回（旧格式页面已提供PDF链接）
+    if url.endswith(".pdf"):
+        detail["pdf_url"] = url
+        return detail
 
     soup = fetch_page(url)
     if not soup:
@@ -244,12 +301,12 @@ def crawl_ndss_year(year: int, output_dir: str = "NDSS"):
 def main():
     """主函数"""
     # 设置输出目录
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     output_dir = os.path.join(script_dir, "NDSS")
 
-    # 爬取年份范围：2010-2025
-    start_year = 2010
-    end_year = 2025
+    # 爬取年份范围：2018-2026
+    start_year = 2018
+    end_year = 2026
 
     print(f"NDSS论文爬虫启动")
     print(f"爬取范围: {start_year}-{end_year}")

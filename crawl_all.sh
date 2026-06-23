@@ -65,12 +65,13 @@ main() {
     total_start=$(date +%s)
 
     # 定义会议列表: 名称|脚本文件
+    CRAWLER_DIR="$SCRIPT_DIR/crawlers"
     declare -A CONFERENCES
     CONFERENCES=(
-        [ndss]="ndss_crawler.py"
-        [usenix]="usenix_crawler.py"
-        [sp]="sp_crawler.py"
-        [ccs]="ccs_crawler.py"
+        [ndss]="$CRAWLER_DIR/ndss_crawler.py"
+        [usenix]="$CRAWLER_DIR/usenix_crawler.py"
+        [sp]="$CRAWLER_DIR/sp_crawler.py"
+        [ccs]="$CRAWLER_DIR/ccs_crawler.py"
     )
 
     # 确定要爬取的会议
