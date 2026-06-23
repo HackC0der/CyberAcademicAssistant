@@ -1,2 +1,22 @@
-NDSS/2024
-__pycache__
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# 论文爬取数据（体积大，不纳入版本控制）
+NDSS/
+USENIX/
+S&P/
+CCS/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
