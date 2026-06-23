@@ -14,7 +14,8 @@ const chatHistory = document.getElementById('chat-history');
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
-// 本地会话缓存（从服务端加载）
+let currentMode = 'literature';  // 'literature' 或 'debate'
+let currentSubMode = 'reviewer'; // 'reviewer' 或 'mentor'（仅 debate 模式）
 let sessionsCache = [];
 
 // 进行中的请求跟踪：sessionId → { fullText, progress, stage, progressEl, resultEl, abortController }
@@ -155,13 +156,62 @@ function setupEventListeners() {
     });
     userInput.addEventListener('input', autoResize);
     newChatBtn.addEventListener('click', newChat);
+
+    // 示例查询
     document.querySelectorAll('.example-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            // 如果示例指定了模式，先切换
+            if (btn.dataset.mode) switchMode(btn.dataset.mode);
             userInput.value = btn.dataset.query;
             autoResize();
             sendMessage();
         });
     });
+
+    // 模式切换
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+    });
+
+    // 辩论子模式切换
+    document.querySelectorAll('.submode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentSubMode = btn.dataset.submode;
+            document.querySelectorAll('.submode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updatePlaceholder();
+        });
+    });
+}
+
+function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.mode-btn[data-mode="${mode}"]`).classList.add('active');
+
+    document.getElementById('welcome-literature').style.display = mode === 'literature' ? '' : 'none';
+    document.getElementById('welcome-debate').style.display = mode === 'debate' ? '' : 'none';
+    document.getElementById('debate-submode').style.display = mode === 'debate' ? '' : 'none';
+    document.getElementById('stats-info').style.display = mode === 'literature' ? '' : 'none';
+
+    // 切换会话列表（按模式过滤）
+    renderSidebar();
+    newChat();
+    updatePlaceholder();
+}
+
+function updatePlaceholder() {
+    const hint = document.getElementById('input-hint');
+    if (currentMode === 'literature') {
+        userInput.placeholder = '描述你的研究课题...';
+        hint.textContent = '按 Enter 发送，Shift+Enter 换行 | TF-IDF 初筛 + LLM 语义排序';
+    } else if (currentSubMode === 'reviewer') {
+        userInput.placeholder = '描述你的研究想法，审稿人将进行严厉质疑...';
+        hint.textContent = '按 Enter 发送 | 🔍 审稿人模式：批判性审视你的假设与贡献';
+    } else {
+        userInput.placeholder = '描述你的研究想法，导师将帮你打磨创新点...';
+        hint.textContent = '按 Enter 发送 | 🎓 导师模式：引导你凝练科学问题与设计';
+    }
 }
 
 function autoResize() {
@@ -222,13 +272,24 @@ function initResize() {
 
 function renderSidebar() {
     chatHistory.innerHTML = '';
-    if (sessionsCache.length === 0) {
+    // 按当前模式过滤会话
+    const filtered = sessionsCache.filter(s => (s.mode || 'literature') === currentMode);
+    if (filtered.length === 0) {
         chatHistory.innerHTML = '<div class="sidebar-empty">暂无对话</div>';
         return;
     }
-    sessionsCache.forEach(session => {
+    filtered.forEach(session => {
         const item = document.createElement('div');
         item.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
+        // 模式图标
+        const icon = document.createElement('span');
+        icon.className = 'session-icon';
+        if (session.mode === 'debate') {
+            icon.textContent = session.subMode === 'mentor' ? '🎓' : '⚔️';
+        } else {
+            icon.textContent = '📚';
+        }
+        item.appendChild(icon);
         // 进行中有请求时显示小圆点
         if (activeRequests.has(session.id)) {
             const dot = document.createElement('span');
@@ -325,6 +386,10 @@ async function sendMessage() {
         const newSess = await createSession(title);
         if (!newSess) return;
         currentSessionId = newSess.id;
+        // 记录会话模式
+        newSess.mode = currentMode;
+        newSess.subMode = currentSubMode;
+        await saveSession(newSess);
     }
 
     // 保存用户消息
@@ -359,10 +424,16 @@ async function sendMessage() {
     // 构建历史对话（最近 10 条，包含刚保存的用户消息）
     const history = session.messages.slice(-10);
 
-    fetch('/api/chat', {
+    // 根据模式选择 API
+    const apiEndpoint = currentMode === 'debate' ? '/api/debate' : '/api/chat';
+    const body = currentMode === 'debate'
+        ? { message: text, history: history, mode: currentSubMode }
+        : { message: text, history: history };
+
+    fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: history }),
+        body: JSON.stringify(body),
         signal: abortController.signal,
     }).then(response => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);

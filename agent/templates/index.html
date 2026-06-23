@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文献匹配智能体 - 四大顶会论文检索</title>
+    <title>学术智能体平台</title>
     <link rel="stylesheet" href="/static/style.css">
-    <!-- Markdown 渲染 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
@@ -13,13 +12,34 @@
         <!-- 侧边栏 -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>📚 文献匹配</h2>
+                <h2>🎓 学术智能体</h2>
                 <button id="new-chat-btn" title="新对话">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 5v14M5 12h14"/>
                     </svg>
                 </button>
             </div>
+
+            <!-- 模式切换 -->
+            <div class="mode-switcher">
+                <button class="mode-btn active" data-mode="literature">
+                    📚 文献匹配
+                </button>
+                <button class="mode-btn" data-mode="debate">
+                    ⚔️ Idea 辩论
+                </button>
+            </div>
+
+            <!-- 辩论子模式（仅 debate 模式显示） -->
+            <div class="debate-submode" id="debate-submode" style="display:none;">
+                <button class="submode-btn active" data-submode="reviewer">
+                    🔍 审稿人模式
+                </button>
+                <button class="submode-btn" data-submode="mentor">
+                    🎓 导师模式
+                </button>
+            </div>
+
             <div class="sidebar-content">
                 <div id="chat-history"></div>
             </div>
@@ -34,12 +54,11 @@
 
         <!-- 主内容区 -->
         <main class="main-content">
-            <!-- 消息区域 -->
             <div class="chat-container" id="chat-container">
-                <!-- 欢迎页 -->
-                <div class="welcome-screen" id="welcome-screen">
+                <!-- 欢迎页 - 文献匹配 -->
+                <div class="welcome-screen" id="welcome-literature">
                     <div class="welcome-icon">📚</div>
-                    <h1>四大顶会文献匹配智能体</h1>
+                    <h1>四大顶会文献匹配</h1>
                     <p>基于 NDSS、CCS、S&P、USENIX Security 2018-2026 年论文库</p>
                     <p>描述你的研究课题，AI 帮你找到最相关的论文</p>
                     <div class="example-queries">
@@ -47,6 +66,28 @@
                         <button class="example-btn" data-query="我正在研究大语言模型的安全性，包括越狱攻击、提示注入和对抗样本">LLM 安全性研究</button>
                         <button class="example-btn" data-query="我关注物联网设备的安全分析，特别是固件分析和漏洞检测">IoT 固件安全分析</button>
                         <button class="example-btn" data-query="我在做区块链智能合约的安全研究，包括形式化验证和自动化漏洞检测">智能合约安全</button>
+                    </div>
+                </div>
+
+                <!-- 欢迎页 - Idea 辩论 -->
+                <div class="welcome-screen" id="welcome-debate" style="display:none;">
+                    <div class="welcome-icon">⚔️</div>
+                    <h1>Idea 辩论智能体</h1>
+                    <p>用批判性对话打磨你的研究想法，找到坚不可摧的核心创新点</p>
+                    <div class="mode-desc">
+                        <div class="mode-card">
+                            <h3>🔍 审稿人模式</h3>
+                            <p>扮演顶级会议审稿人，严厉质疑你的假设、边界和贡献。目标是找出所有逻辑裂缝，只留下经得起推敲的核心。</p>
+                        </div>
+                        <div class="mode-card">
+                            <h3>🎓 导师模式</h3>
+                            <p>扮演资深教授，帮你将模糊的想法打磨为清晰的科学问题和创新点。引导你从问题出发设计方法，而非为了设计而设计。</p>
+                        </div>
+                    </div>
+                    <div class="example-queries">
+                        <button class="example-btn" data-mode="debate" data-query="我的研究课题是漏洞利用代码移植，我想实现同一程序不同版本之间的exploit自动移植">漏洞利用代码移植</button>
+                        <button class="example-btn" data-mode="debate" data-query="我正在研究基于大模型的自动化漏洞挖掘，想用LLM辅助符号执行来发现深层漏洞">LLM辅助漏洞挖掘</button>
+                        <button class="example-btn" data-mode="debate" data-query="我想研究智能家居设备的隐私安全，特别是通过侧信道推断用户行为">IoT隐私侧信道</button>
                     </div>
                 </div>
 
@@ -59,7 +100,7 @@
                 <div class="input-wrapper">
                     <textarea
                         id="user-input"
-                        placeholder="描述你的研究课题，例如：我对侧信道攻击感兴趣..."
+                        placeholder="描述你的研究课题..."
                         rows="1"
                         autofocus
                     ></textarea>
@@ -69,7 +110,7 @@
                         </svg>
                     </button>
                 </div>
-                <div class="input-hint">按 Enter 发送，Shift+Enter 换行 | 基于 TF-IDF 初筛 + LLM 语义排序</div>
+                <div class="input-hint" id="input-hint">按 Enter 发送，Shift+Enter 换行 | TF-IDF 初筛 + LLM 语义排序</div>
             </div>
         </main>
     </div>
