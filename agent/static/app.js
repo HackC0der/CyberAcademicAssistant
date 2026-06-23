@@ -20,6 +20,9 @@ let currentPersona = 'reviewer';  // 'reviewer' | 'mentor'，仅 debate 模式
 let sessionsCache = [];
 const activeRequests = new Map();
 
+// PDF 上下文（上传后暂存，发送后清空）
+let pendingPdf = null;  // { filename, text, images }
+
 // ========== 会话持久化 ==========
 
 async function loadAllSessions() {
@@ -97,6 +100,14 @@ function setupEventListeners() {
     userInput.addEventListener('input', autoResize);
     newChatBtn.addEventListener('click', newChat);
 
+    // PDF 上传
+    const pdfUpload = document.getElementById('pdf-upload');
+    const pdfBtn = document.getElementById('pdf-btn');
+    const pdfClear = document.getElementById('pdf-clear');
+    pdfBtn.addEventListener('click', () => pdfUpload.click());
+    pdfUpload.addEventListener('change', handlePdfUpload);
+    pdfClear.addEventListener('click', clearPdf);
+
     // 示例查询
     document.querySelectorAll('.example-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -144,6 +155,42 @@ function updatePlaceholder() {
         userInput.placeholder = '描述你的研究想法，导师将帮你打磨创新点...';
         hint.textContent = '按 Enter 发送 | 🎓 导师模式：可随时切换为审稿人模式';
     }
+}
+
+// ========== PDF 上传 ==========
+
+async function handlePdfUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const indicator = document.getElementById('pdf-indicator');
+    const nameEl = document.getElementById('pdf-name');
+    nameEl.textContent = `正在解析: ${file.name}...`;
+    indicator.style.display = '';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const resp = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        pendingPdf = { filename: data.filename, text: data.text, images: data.images || [] };
+        nameEl.textContent = `${data.filename} (${data.pages}页, ${data.text_length}字)`;
+    } catch (err) {
+        nameEl.textContent = `解析失败: ${err.message}`;
+        pendingPdf = null;
+        setTimeout(() => { indicator.style.display = 'none'; }, 3000);
+    }
+
+    // 重置 input 以便重复上传同一文件
+    e.target.value = '';
+}
+
+function clearPdf() {
+    pendingPdf = null;
+    document.getElementById('pdf-indicator').style.display = 'none';
 }
 
 // ========== 主题 ==========
@@ -296,6 +343,13 @@ async function sendMessage() {
     } else {
         apiEndpoint = '/api/chat';
         body = { message: text, history: history };
+    }
+
+    // 附带 PDF 上下文
+    if (pendingPdf) {
+        body.pdf_context = pendingPdf.text;
+        body.pdf_filename = pendingPdf.filename;
+        clearPdf();
     }
 
     fetch(apiEndpoint, {

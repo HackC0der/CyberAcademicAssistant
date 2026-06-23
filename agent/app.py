@@ -1,15 +1,19 @@
 """
 学术智能体平台 - Flask 主应用
-包含：文献匹配智能体、Idea 辩论智能体
+包含：文献匹配智能体、Idea 辩论智能体、PDF 解读
 """
 
 import json
 import sys
 import os
+import io
+import base64
 import threading
 from pathlib import Path
 
 from flask import Flask, render_template, request, Response, jsonify, stream_with_context
+
+import fitz  # PyMuPDF
 
 from paper_store import PaperStore
 from llm_client import chat_stream, chat_sync
@@ -154,8 +158,10 @@ def chat():
     """对话接口 - SSE 流式响应，带真实进度"""
     data = request.get_json()
     user_query = data.get("message", "").strip()
-    # 历史对话（前端传入，用于上下文连贯）
     history = data.get("history", [])
+    # PDF 上下文（可选）
+    pdf_context = data.get("pdf_context", "")
+    pdf_filename = data.get("pdf_filename", "")
     if not user_query:
         return jsonify({"error": "消息不能为空"}), 400
 
@@ -210,6 +216,13 @@ def chat():
                     "content": msg.get("content", "")[:500],
                 })
 
+        # PDF 上下文（如果有）
+        pdf_block = ""
+        if pdf_context:
+            # 限制长度避免 token 过长
+            truncated = pdf_context[:8000]
+            pdf_block = f"\n\n以下是用户上传的 PDF 文档内容（文件名: {pdf_filename}）:\n{truncated}\n"
+
         user_prompt = f"""当前请求:
 {user_query}
 
@@ -217,8 +230,9 @@ def chat():
 
 以下是从论文库中初步筛选出的候选论文（按相关度排序）:
 {papers_context}
+{pdf_block}
 
-请从中选出最相关的论文，并解释它们与我课题的关联。如果是"更多论文"的请求，请推荐之前未提及的论文。用中文回答。"""
+请从中选出最相关的论文，并解释它们与我课题的关联。如果是"更多论文"的请求，请推荐之前未提及的论文。如果用户上传了 PDF，请结合 PDF 内容进行分析。用中文回答。"""
 
         messages.append({"role": "user", "content": user_prompt})
 
@@ -376,6 +390,67 @@ def debate():
         content_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ========== PDF 解读 ==========
+
+@app.route("/api/upload-pdf", methods=["POST"])
+def upload_pdf():
+    """上传并解析 PDF，返回提取的文本和图片"""
+    if "file" not in request.files:
+        return jsonify({"error": "未上传文件"}), 400
+
+    file = request.files["file"]
+    if not file.filename.lower().endswith(".pdf"):
+        return jsonify({"error": "仅支持 PDF 文件"}), 400
+
+    try:
+        pdf_bytes = file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+
+        pages_text = []
+        images_b64 = []
+
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+
+            # 提取文本
+            text = page.get_text("text").strip()
+            if text:
+                pages_text.append(f"--- 第 {page_num + 1} 页 ---\n{text}")
+
+            # 提取图片
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                try:
+                    base_image = doc.extract_image(xref)
+                    if base_image and base_image.get("image"):
+                        img_bytes = base_image["image"]
+                        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                        ext = base_image.get("ext", "png")
+                        images_b64.append({
+                            "page": page_num + 1,
+                            "index": img_index,
+                            "ext": ext,
+                            "data": img_b64,
+                        })
+                except Exception:
+                    continue
+
+        doc.close()
+
+        full_text = "\n\n".join(pages_text)
+
+        return jsonify({
+            "filename": file.filename,
+            "pages": len(pages_text),
+            "text": full_text,
+            "text_length": len(full_text),
+            "images": images_b64,
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"PDF 解析失败: {str(e)}"}), 500
 
 
 @app.route("/api/search", methods=["POST"])
