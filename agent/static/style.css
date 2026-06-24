@@ -381,6 +381,7 @@ body.resizing * { cursor: col-resize !important; user-select: none !important; }
 
 .message.user .message-avatar { background: #5b8def; }
 .message.assistant .message-avatar { background: var(--accent); }
+.message.assistant[data-agent="chat"] .message-avatar { background: #3498db; }
 .message.assistant[data-agent="literature"] .message-avatar { background: #6c5ce7; }
 .message.assistant[data-agent="reviewer"] .message-avatar { background: #e74c3c; }
 .message.assistant[data-agent="mentor"] .message-avatar { background: #27ae60; }

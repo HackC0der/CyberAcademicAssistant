@@ -16,7 +16,7 @@ const sidebarToggle = document.getElementById('sidebar-toggle');
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
-let currentMode = 'literature';   // 'literature' | 'debate' | 'quiz'
+let currentMode = 'chat';          // 'chat' | 'literature' | 'debate' | 'quiz'
 let currentPersona = 'reviewer';  // debate: 'reviewer'|'mentor', quiz: 'inquiry'|'solution'
 let sessionsCache = [];
 const activeRequests = new Map();
@@ -176,7 +176,10 @@ function switchPersona(persona) {
 
 function updatePlaceholder() {
     const hint = document.getElementById('input-hint');
-    if (currentMode === 'literature') {
+    if (currentMode === 'chat') {
+        userInput.placeholder = '输入任何问题...';
+        hint.textContent = '按 Enter 发送，Shift+Enter 换行';
+    } else if (currentMode === 'literature') {
         userInput.placeholder = '描述你的研究课题...';
         hint.textContent = '按 Enter 发送，Shift+Enter 换行 | TF-IDF 初筛 + LLM 语义排序';
     } else if (currentMode === 'quiz') {
@@ -422,6 +425,7 @@ function renderSidebar() {
         if (lastAi && lastAi.persona === 'reviewer') icon.textContent = '🔍';
         else if (lastAi && lastAi.persona === 'mentor') icon.textContent = '🎓';
         else if (lastAi && lastAi.persona === 'quiz') icon.textContent = '📝';
+        else if (lastAi && lastAi.persona === 'chat') icon.textContent = '💬';
         else icon.textContent = '📚';
         item.appendChild(icon);
         if (activeRequests.has(session.id)) {
@@ -562,7 +566,10 @@ async function sendMessage() {
         temperature: appConfig.temperature ?? 0.7,
         max_tokens: (appConfig.max_tokens || undefined),
     };
-    if (currentMode === 'debate') {
+    if (currentMode === 'chat') {
+        apiEndpoint = '/api/chat-general';
+        body = { message: text, history: history, ...settings };
+    } else if (currentMode === 'debate') {
         apiEndpoint = '/api/debate';
         body = { message: text, history: history, mode: currentPersona, ...settings };
     } else if (currentMode === 'quiz') {
@@ -639,12 +646,14 @@ function onComplete(sid) {
 // ========== DOM ==========
 
 function getAgentAvatar() {
+    if (currentMode === 'chat') return '💬';
     if (currentMode === 'debate') return currentPersona === 'mentor' ? '🎓' : '🔍';
     if (currentMode === 'quiz') return currentPersona === 'solution' ? '✅' : '🔍';
     return '📚';
 }
 
 function getAgentType() {
+    if (currentMode === 'chat') return 'chat';
     if (currentMode === 'debate') return currentPersona === 'mentor' ? 'mentor' : 'reviewer';
     if (currentMode === 'quiz') return 'quiz';
     return 'literature';
