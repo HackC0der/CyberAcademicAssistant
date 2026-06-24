@@ -332,22 +332,6 @@ MENTOR_SYSTEM_PROMPT = """你是一位网络安全领域的资深教授和博士
 - 关键洞察用 **加粗** 或 > 引用
 - 给出具体的、可执行的下一步建议"""
 
-DEBATE_KNOWLEDGE_CONTEXT = """## 背景知识：漏洞利用代码移植的科学问题框架
-
-以下是该领域已确定的两个核心科学问题，可作为讨论的参考框架：
-
-**科学问题一：利用语义的多层次表征**
-如何构建一种层次化的利用语义表示，能够将利用代码中的攻击意图（策略层）、利用原语（原语层）和平台相关的实现细节（操作数层）系统性解耦？
-
-**科学问题二：语义等价的利用片段重合成**
-当某个利用片段因版本变更而失效时，如何在其语义接口（前置条件、后置条件、可容忍副作用）的约束下，在目标环境中合成出功能等效的替代片段？
-
-**关键设计思路**：
-- EPIL（Exploit Primitive Intermediate Language）：利用语义的中间表示
-- 分层Agent架构：低维（操作数）→ 中维（原语）→ 高维（策略）
-- 自底向上失败升级：失效层次由Agent能力边界自然暴露
-- LLM提案 + 环境验证双层闭环：区分"真合成"与"伪检索"
-"""
 
 
 def _progress(percent: int, stage: str) -> str:
@@ -374,7 +358,7 @@ def debate():
 
     # 构建完整消息
     messages = [
-        {"role": "system", "content": system_prompt + "\n\n" + DEBATE_KNOWLEDGE_CONTEXT},
+        {"role": "system", "content": system_prompt},
     ]
 
     # 添加历史对话
