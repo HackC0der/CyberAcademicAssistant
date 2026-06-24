@@ -16,8 +16,8 @@ const sidebarToggle = document.getElementById('sidebar-toggle');
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
-let currentMode = 'literature';
-let currentPersona = 'reviewer';
+let currentMode = 'literature';   // 'literature' | 'debate' | 'quiz'
+let currentPersona = 'reviewer';  // debate: 'reviewer'|'mentor', quiz: 'inquiry'|'solution'
 let sessionsCache = [];
 const activeRequests = new Map();
 let appConfig = {};
@@ -156,7 +156,15 @@ async function saveConfig() {
 function switchMode(mode) {
     currentMode = mode;
     document.querySelectorAll('.agent-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
-    personaSwitch.style.display = mode === 'debate' ? '' : 'none';
+    document.getElementById('persona-switch').style.display = mode === 'debate' ? '' : 'none';
+    document.getElementById('quiz-persona-switch').style.display = mode === 'quiz' ? '' : 'none';
+    // 重置 persona
+    if (mode === 'debate') currentPersona = 'reviewer';
+    else if (mode === 'quiz') currentPersona = 'inquiry';
+    document.querySelectorAll('.persona-btn').forEach(b => {
+        const p = b.dataset.persona;
+        b.classList.toggle('active', p === currentPersona);
+    });
     updatePlaceholder();
 }
 
@@ -172,8 +180,13 @@ function updatePlaceholder() {
         userInput.placeholder = '描述你的研究课题...';
         hint.textContent = '按 Enter 发送，Shift+Enter 换行 | TF-IDF 初筛 + LLM 语义排序';
     } else if (currentMode === 'quiz') {
-        userInput.placeholder = '上传论文 PDF 后，回答 AI 的问题...';
-        hint.textContent = '按 Enter 发送 | 📝 精读模式：上传论文，回答问题，检验理解';
+        if (currentPersona === 'solution') {
+            userInput.placeholder = '回答 AI 提出的问题...';
+            hint.textContent = '按 Enter 发送 | ✅ 解惑模式：评判你的回答，指出错误不给答案';
+        } else {
+            userInput.placeholder = '上传论文 PDF，AI 将提问核心问题...';
+            hint.textContent = '按 Enter 发送 | 🔍 求索模式：基于论文提出深度问题';
+        }
     } else if (currentPersona === 'reviewer') {
         userInput.placeholder = '描述你的研究想法，审稿人将进行严厉质疑...';
         hint.textContent = '按 Enter 发送 | 🔍 审稿人模式：可随时切换为导师模式';
@@ -516,7 +529,7 @@ async function sendMessage() {
         body = { message: text, history: history, mode: currentPersona, ...settings };
     } else if (currentMode === 'quiz') {
         apiEndpoint = '/api/quiz';
-        body = { message: text, history: history, ...settings };
+        body = { message: text, history: history, mode: currentPersona, ...settings };
     } else {
         apiEndpoint = '/api/chat';
         body = { message: text, history: history, ...settings };
@@ -589,7 +602,7 @@ function onComplete(sid) {
 
 function getAgentAvatar() {
     if (currentMode === 'debate') return currentPersona === 'mentor' ? '🎓' : '🔍';
-    if (currentMode === 'quiz') return '📝';
+    if (currentMode === 'quiz') return currentPersona === 'solution' ? '✅' : '🔍';
     return '📚';
 }
 

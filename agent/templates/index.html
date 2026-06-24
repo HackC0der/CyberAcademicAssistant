@@ -98,12 +98,12 @@
                             <p>基于四大顶会 5500+ 论文，用自然语言描述课题，AI 语义匹配返回最相关论文。</p>
                         </div>
                         <div class="mode-card">
-                            <h3>⚔️ Idea 辩论</h3>
+                            <h3>⚔️ Idea 辨析</h3>
                             <p>切换审稿人/导师人格，对你的研究想法进行批判性质疑或建设性引导，打磨核心创新点。</p>
                         </div>
                         <div class="mode-card">
-                            <h3>📝 精读</h3>
-                            <p>上传论文 PDF，AI 提问核心问题并评判你的回答，检验理解深度，不给答案只指出错误。</p>
+                            <h3>📝 求索解惑</h3>
+                            <p>求索模式提问论文核心，解惑模式评判你的回答。不给答案，只指出错误，加深理解。</p>
                         </div>
                     </div>
                 </div>
@@ -116,13 +116,18 @@
                 <div class="agent-bar">
                     <div class="agent-tabs">
                         <button class="agent-tab active" data-mode="literature">📚 文献匹配</button>
-                        <button class="agent-tab" data-mode="debate">⚔️ Idea 辩论</button>
-                        <button class="agent-tab" data-mode="quiz">📝 精读</button>
+                        <button class="agent-tab" data-mode="debate">⚔️ Idea 辨析</button>
+                        <button class="agent-tab" data-mode="quiz">📝 求索解惑</button>
                     </div>
                     <div class="persona-switch" id="persona-switch" style="display:none;">
                         <span class="persona-label">人格：</span>
                         <button class="persona-btn active" data-persona="reviewer">🔍 审稿人</button>
                         <button class="persona-btn" data-persona="mentor">🎓 导师</button>
+                    </div>
+                    <div class="persona-switch" id="quiz-persona-switch" style="display:none;">
+                        <span class="persona-label">模式：</span>
+                        <button class="persona-btn active" data-persona="inquiry">🔍 求索</button>
+                        <button class="persona-btn" data-persona="solution">✅ 解惑</button>
                     </div>
                 </div>
 
