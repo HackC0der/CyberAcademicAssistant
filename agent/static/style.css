@@ -15,7 +15,7 @@
     --accent-soft: rgba(124, 111, 224, 0.1);
     --radius: 12px;
     --sidebar-width: 260px;
-    --content-max-width: 768px;
+    --content-max-width: 80%;
 }
 
 /* ========== 亮色主题 ========== */

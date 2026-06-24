@@ -193,6 +193,47 @@ function clearPdf() {
     document.getElementById('pdf-indicator').style.display = 'none';
 }
 
+// ========== 侧边栏拖拽调整宽度 ==========
+
+function initResize() {
+    const handle = document.getElementById('resize-handle');
+    const sidebar = document.querySelector('.sidebar');
+    const root = document.documentElement;
+    const SIDEBAR_KEY = 'literature_agent_sidebar_width';
+
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    if (saved) {
+        const w = parseInt(saved, 10);
+        if (w >= 180 && w <= 500) root.style.setProperty('--sidebar-width', w + 'px');
+    }
+
+    let startX, startWidth;
+
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = sidebar.getBoundingClientRect().width;
+        handle.classList.add('active');
+        document.body.classList.add('resizing');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+
+    function onMouseMove(e) {
+        let newWidth = startWidth + (e.clientX - startX);
+        newWidth = Math.max(180, Math.min(500, newWidth));
+        root.style.setProperty('--sidebar-width', newWidth + 'px');
+    }
+
+    function onMouseUp() {
+        handle.classList.remove('active');
+        document.body.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        localStorage.setItem(SIDEBAR_KEY, Math.round(sidebar.getBoundingClientRect().width));
+    }
+}
+
 // ========== 主题 ==========
 
 function initTheme() {
