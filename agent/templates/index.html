@@ -114,19 +114,25 @@
                     </div>
                 </div>
 
+                <!-- PDF 引用栏 -->
+                <div id="pdf-bar" class="pdf-bar" style="display:none;"></div>
+
                 <div class="input-wrapper">
-                    <textarea id="user-input" placeholder="描述你的研究课题..." rows="1" autofocus></textarea>
                     <input type="file" id="pdf-upload" accept=".pdf" hidden />
-                    <button id="pdf-btn" title="上传 PDF" class="input-icon-btn">📎</button>
+                    <button id="pdf-btn" title="上传 PDF" class="pdf-upload-btn">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="12" y1="18" x2="12" y2="12"/>
+                            <line x1="9" y1="15" x2="15" y2="15"/>
+                        </svg>
+                    </button>
+                    <textarea id="user-input" placeholder="描述你的研究课题..." rows="1" autofocus></textarea>
                     <button id="send-btn" title="发送">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
                     </button>
-                </div>
-                <div id="pdf-indicator" class="pdf-indicator" style="display:none;">
-                    <span>📄 <span id="pdf-name"></span></span>
-                    <button id="pdf-clear" class="pdf-clear-btn" title="移除">×</button>
                 </div>
                 <div class="input-hint" id="input-hint">按 Enter 发送，Shift+Enter 换行</div>
             </div>

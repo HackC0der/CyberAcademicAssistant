@@ -2,41 +2,42 @@
 
 ## 项目概述
 
-网络安全四大顶会论文爬虫工具，用于自动获取NDSS、CCS、S&P、USENIX会议的论文信息。
+网络安全四大顶会（NDSS、CCS、S&P、USENIX）论文爬虫 + 学术智能体平台。
 
-## 用户背景
+## 技术栈
 
-- 网络空间安全专业博士研究生
-- 需要获取四大顶会论文用于研究
+- Python 3.x, Flask, scikit-learn, PyMuPDF
+- 前端: 原生 HTML/CSS/JS
+- LLM: OpenAI 兼容接口
 
 ## 目录结构
 
 ```
-4TH-CyberSecurityConference/
-├── CLAUDE.md
-├── ndss_crawler.py      # NDSS爬虫脚本
-├── NDSS/                # NDSS论文数据
-│   └── {year}/          # 按年份组织
-├── CCS/                 # CCS论文数据
-├── S&P/                 # S&P论文数据
-└── USENIX/              # USENIX论文数据
+├── crawlers/           # 四个会议的爬虫脚本
+├── agent/              # 智能体平台
+│   ├── agents/         # 可插拔智能体模块
+│   │   ├── base.py     # BaseAgent 基类
+│   │   ├── literature.py
+│   │   └── debate.py
+│   ├── app.py          # Flask 入口
+│   ├── llm_client.py   # LLM API
+│   ├── paper_store.py  # TF-IDF 论文检索
+│   ├── pdf_utils.py    # PDF 解析
+│   └── config.json     # LLM 配置
+├── NDSS/ USENIX/ S&P/ CCS/  # 论文数据
+└── crawl_all.sh
 ```
 
-## 输出文件格式
+## 常用命令
 
-每年份生成三个文件：
-1. `ndss{year}_abstracts.md` - 所有论文摘要（二级标题+正文）
-2. `ndss{year}_papers.md` - 论文PDF链接列表
-3. `ndss{year}_slides.md` - Slides链接列表
-
-## 技术栈
-
-- Python 3.x
-- requests
-- beautifulsoup4
+```bash
+bash crawl_all.sh       # 爬取论文
+cd agent && python app.py  # 启动平台
+```
 
 ## 开发规范
 
-- 添加反爬措施（请求延迟、随机User-Agent）
-- 错误处理和日志记录
-- 代码注释使用中文
+- 新智能体: 继承 `BaseAgent`，放 `agents/` 下，自动注册
+- 配置: `config.json` 管理 LLM 参数，`/api/config` 热更新
+- 会话: JSON 文件持久化在 `agent/data/`
+- 敏感信息: API Key 存 `config.json`，已 gitignore

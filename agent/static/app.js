@@ -20,8 +20,9 @@ let currentMode = 'literature';
 let currentPersona = 'reviewer';
 let sessionsCache = [];
 const activeRequests = new Map();
-let pendingPdf = null;
-let appConfig = {};  // 从服务端加载的配置
+let appConfig = {};
+// PDF 管理：上传的 PDF 列表，可点击引用
+let uploadedPdfs = [];  // [{id, filename, text, images, active}]
 
 // ========== 初始化 ==========
 
@@ -63,7 +64,6 @@ function setupEventListeners() {
     // PDF 上传
     document.getElementById('pdf-upload').addEventListener('change', handlePdfUpload);
     document.getElementById('pdf-btn').addEventListener('click', () => document.getElementById('pdf-upload').click());
-    document.getElementById('pdf-clear').addEventListener('click', clearPdf);
 
     // 侧边栏标签页
     document.querySelectorAll('.sidebar-tab').forEach(tab => {
@@ -202,11 +202,6 @@ async function handlePdfUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const indicator = document.getElementById('pdf-indicator');
-    const nameEl = document.getElementById('pdf-name');
-    nameEl.textContent = `正在解析: ${file.name}...`;
-    indicator.style.display = '';
-
     const formData = new FormData();
     formData.append('file', file);
 
@@ -214,19 +209,64 @@ async function handlePdfUpload(e) {
         const resp = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
-        pendingPdf = { filename: data.filename, text: data.text, images: data.images || [] };
-        nameEl.textContent = `${data.filename} (${data.pages}页, ${data.text_length}字)`;
+
+        const pdf = {
+            id: 'pdf_' + Date.now(),
+            filename: data.filename,
+            text: data.text,
+            pages: data.pages,
+            text_length: data.text_length,
+            active: true,  // 默认引用
+        };
+        uploadedPdfs.push(pdf);
+        renderPdfBar();
     } catch (err) {
-        nameEl.textContent = `解析失败: ${err.message}`;
-        pendingPdf = null;
-        setTimeout(() => { indicator.style.display = 'none'; }, 3000);
+        alert(`PDF 解析失败: ${err.message}`);
     }
     e.target.value = '';
 }
 
-function clearPdf() {
-    pendingPdf = null;
-    document.getElementById('pdf-indicator').style.display = 'none';
+function renderPdfBar() {
+    const bar = document.getElementById('pdf-bar');
+    if (uploadedPdfs.length === 0) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+        return;
+    }
+
+    bar.style.display = '';
+    bar.innerHTML = '';
+
+    uploadedPdfs.forEach(pdf => {
+        const chip = document.createElement('div');
+        chip.className = 'pdf-chip' + (pdf.active ? ' active' : '');
+        chip.title = pdf.active ? '点击取消引用' : '点击引用此 PDF';
+        chip.innerHTML = `
+            <span class="pdf-chip-icon">📄</span>
+            <span class="pdf-chip-name">${pdf.filename}</span>
+            <button class="pdf-chip-remove" title="移除">×</button>
+        `;
+
+        // 点击芯片切换引用状态
+        chip.addEventListener('click', (e) => {
+            if (e.target.classList.contains('pdf-chip-remove')) return;
+            pdf.active = !pdf.active;
+            renderPdfBar();
+        });
+
+        // 移除按钮
+        chip.querySelector('.pdf-chip-remove').addEventListener('click', (e) => {
+            e.stopPropagation();
+            uploadedPdfs = uploadedPdfs.filter(p => p.id !== pdf.id);
+            renderPdfBar();
+        });
+
+        bar.appendChild(chip);
+    });
+}
+
+function getReferencedPdfs() {
+    return uploadedPdfs.filter(p => p.active);
 }
 
 // ========== 会话管理 ==========
@@ -412,17 +452,23 @@ async function sendMessage() {
         body = { message: text, history: history, ...settings };
     }
 
-    if (pendingPdf) {
-        body.pdf_context = pendingPdf.text;
-        body.pdf_filename = pendingPdf.filename;
+    // 附带引用的 PDF
+    const refPdfs = getReferencedPdfs();
+    if (refPdfs.length > 0) {
+        // 合并多个 PDF 的内容
+        const combined = refPdfs.map(p => `=== ${p.filename} ===\n${p.text}`).join('\n\n');
+        body.pdf_context = combined;
+        body.pdf_filename = refPdfs.map(p => p.filename).join(', ');
+        // 在用户消息旁显示引用标记
         const userMsgEl = messagesDiv.querySelector('.message.user:last-of-type .message-content');
         if (userMsgEl) {
-            const tag = document.createElement('div');
-            tag.className = 'pdf-tag';
-            tag.textContent = `📄 ${pendingPdf.filename}`;
-            userMsgEl.appendChild(tag);
+            refPdfs.forEach(pdf => {
+                const tag = document.createElement('div');
+                tag.className = 'pdf-tag';
+                tag.textContent = `📄 ${pdf.filename}`;
+                userMsgEl.appendChild(tag);
+            });
         }
-        clearPdf();
     }
 
     fetch(apiEndpoint, {
