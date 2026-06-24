@@ -495,6 +495,53 @@ body.resizing * { cursor: col-resize !important; user-select: none !important; }
 
 .input-wrapper:focus-within { border-color: var(--accent); }
 
+/* 引用标签 */
+.ref-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 0;
+}
+
+.ref-tags:not(:empty) {
+    margin-bottom: 4px;
+}
+
+.ref-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--accent);
+    animation: fadeIn 0.15s ease;
+}
+
+.ref-tag-icon { font-size: 12px; }
+
+.ref-tag-name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ref-tag-remove {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.6;
+}
+
+.ref-tag-remove:hover { opacity: 1; }
+
 #user-input {
     flex: 1; background: none; border: none; color: var(--text-primary);
     font-size: 15px; line-height: 1.5; resize: none; outline: none;

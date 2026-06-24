@@ -36,7 +36,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function setupEventListeners() {
     sendBtn.addEventListener('click', sendMessage);
-    userInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    userInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        // Backspace 空输入时删除最后一个引用标签
+        if (e.key === 'Backspace' && userInput.value === '' && refTags.length > 0) {
+            removeRefTag(refTags[refTags.length - 1].id);
+        }
+    });
     userInput.addEventListener('input', autoResize);
     newChatBtn.addEventListener('click', newChat);
 
@@ -248,6 +254,9 @@ async function handlePdfUpload(e) {
     e.target.value = '';
 }
 
+// 当前会话的引用标签：[{id, filename, text}]
+let refTags = [];
+
 function renderPdfBubble(pdf) {
     const div = document.createElement('div');
     div.className = 'message pdf-bubble';
@@ -261,43 +270,50 @@ function renderPdfBubble(pdf) {
                     <div class="pdf-bubble-name">${pdf.filename}</div>
                     <div class="pdf-bubble-meta">${pdf.pages} 页 · ${pdf.text_length} 字</div>
                 </div>
-                <button class="pdf-ref-btn ${pdf.referenced ? 'active' : ''}" data-pdf-id="${pdf.id}">
-                    ${pdf.referenced ? '✓ 已引用' : '引用'}
-                </button>
+                <button class="pdf-ref-btn" data-pdf-id="${pdf.id}">引用论文</button>
             </div>
         </div>
     `;
 
-    // 引用按钮事件
     div.querySelector('.pdf-ref-btn').addEventListener('click', () => {
-        togglePdfReference(pdf.id);
+        addRefTag(pdf);
     });
 
     messagesDiv.appendChild(div);
 }
 
-function togglePdfReference(pdfId) {
-    const session = getCachedSession(currentSessionId);
-    if (!session || !session.pdfs) return;
+function addRefTag(pdf) {
+    // 去重
+    if (refTags.find(t => t.id === pdf.id)) return;
 
-    const pdf = session.pdfs.find(p => p.id === pdfId);
-    if (!pdf) return;
+    refTags.push({ id: pdf.id, filename: pdf.filename, text: pdf.text });
+    renderRefTags();
+}
 
-    pdf.referenced = !pdf.referenced;
-    saveSession(session);
+function removeRefTag(pdfId) {
+    refTags = refTags.filter(t => t.id !== pdfId);
+    renderRefTags();
+}
 
-    // 更新按钮状态
-    const btn = messagesDiv.querySelector(`.pdf-ref-btn[data-pdf-id="${pdfId}"]`);
-    if (btn) {
-        btn.classList.toggle('active', pdf.referenced);
-        btn.textContent = pdf.referenced ? '✓ 已引用' : '引用';
-    }
+function renderRefTags() {
+    const container = document.getElementById('ref-tags');
+    container.innerHTML = '';
+
+    refTags.forEach(tag => {
+        const el = document.createElement('span');
+        el.className = 'ref-tag';
+        el.innerHTML = `
+            <span class="ref-tag-icon">📄</span>
+            <span class="ref-tag-name">${tag.filename}</span>
+            <button class="ref-tag-remove" data-id="${tag.id}">×</button>
+        `;
+        el.querySelector('.ref-tag-remove').addEventListener('click', () => removeRefTag(tag.id));
+        container.appendChild(el);
+    });
 }
 
 function getReferencedPdfs() {
-    const session = getCachedSession(currentSessionId);
-    if (!session || !session.pdfs) return [];
-    return session.pdfs.filter(p => p.referenced);
+    return refTags;
 }
 
 function renderSessionPdfs(session) {
@@ -407,6 +423,10 @@ function switchSession(id) {
     const session = getCachedSession(id);
     if (!session) return;
 
+    // 清空引用标签
+    refTags = [];
+    renderRefTags();
+
     welcomeScreen.classList.add('hidden');
     messagesDiv.innerHTML = '';
 
@@ -430,6 +450,8 @@ function switchSession(id) {
 
 function newChat() {
     currentSessionId = null;
+    refTags = [];
+    renderRefTags();
     messagesDiv.innerHTML = '';
     welcomeScreen.classList.remove('hidden');
     userInput.value = ''; userInput.style.height = 'auto';

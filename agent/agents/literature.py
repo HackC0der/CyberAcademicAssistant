@@ -1,6 +1,6 @@
 """
 文献匹配智能体
-基于四大顶会论文库，语义匹配返回最相关论文
+多关键词扩展搜索，优先覆盖全部论文库
 """
 
 from .base import BaseAgent
@@ -31,17 +31,18 @@ class LiteratureAgent(BaseAgent):
         if pdf_context:
             print(f"[PDF] 收到 PDF 上下文: {pdf_filename} ({len(pdf_context)} 字符)")
 
-        # 提取关键词
-        keywords = self._extract_keywords(user_query, history)
-
-        # 检索论文库
-        candidates = self.store.search(keywords, top_k=30)
+        # ── 多关键词扩展搜索 ──
+        keyword_sets = self._expand_keywords(user_query, history)
+        all_candidates = self._multi_search(keyword_sets, per_query_top_k=25)
 
         # 构建论文上下文
         papers_context = ""
-        for i, (paper, score) in enumerate(candidates, 1):
+        for i, (paper, score) in enumerate(all_candidates, 1):
             abstract_part = f"\n摘要: {paper.abstract[:500]}..." if paper.abstract else ""
             papers_context += f"\n[{i}] {paper.conference} {paper.year} - {paper.title}{abstract_part}\n"
+
+        total = len(all_candidates)
+        kw_display = " | ".join(keyword_sets[:3])
 
         system_prompt = """你是一个学术文献匹配助手，专门服务于网络安全领域的研究者。
 你的知识库包含四大顶会（NDSS、CCS、S&P、USENIX Security）2018-2026年的论文。
@@ -62,7 +63,6 @@ class LiteratureAgent(BaseAgent):
 
         messages = [{"role": "system", "content": system_prompt}]
 
-        # 历史对话
         if history:
             for msg in history[-6:]:
                 messages.append({
@@ -70,14 +70,14 @@ class LiteratureAgent(BaseAgent):
                     "content": msg.get("content", "")[:500],
                 })
 
-        # 用户消息（含 PDF 或论文检索结果）
+        # PDF 上下文
         if pdf_context:
             pdf_block = f"\n\n=== 用户上传的 PDF 文档（{pdf_filename}）===\n{pdf_context[:8000]}\n=== PDF 内容结束 ===\n"
             user_prompt = f"""当前请求:
 {user_query}
 {pdf_block}
 
-以下是论文库中的相关候选论文（可作为补充参考）:
+以下是论文库中的相关候选论文（共 {total} 篇，使用关键词: {kw_display}）:
 {papers_context}
 
 请重点分析用户上传的 PDF 文档内容，回答用户的问题。论文库结果仅作为补充参考。用中文回答。"""
@@ -85,9 +85,10 @@ class LiteratureAgent(BaseAgent):
             user_prompt = f"""当前请求:
 {user_query}
 
-提取的搜索关键词: {keywords}
+搜索关键词（多组扩展）: {kw_display}
+候选论文数量: {total}
 
-以下是从论文库中初步筛选出的候选论文（按相关度排序）:
+以下是从论文库中筛选出的候选论文:
 {papers_context}
 
 请从中选出最相关的论文，并解释它们与我课题的关联。如果是"更多论文"的请求，请推荐之前未提及的论文。用中文回答。"""
@@ -95,8 +96,11 @@ class LiteratureAgent(BaseAgent):
         messages.append({"role": "user", "content": user_prompt})
         return messages
 
-    def _extract_keywords(self, query: str, history: list = None) -> str:
-        """用 LLM 提取英文搜索关键词"""
+    def _expand_keywords(self, query: str, history: list = None) -> list:
+        """
+        用 LLM 提取多组关键词（主关键词 + 同义词/相关词扩展）
+        返回: ["keyword_set_1", "keyword_set_2", ...]
+        """
         context_block = ""
         if history:
             recent = history[-6:]
@@ -107,7 +111,47 @@ class LiteratureAgent(BaseAgent):
                 context_block += f"{role}: {content}\n"
 
         messages = [
-            {"role": "system", "content": f"You are a keyword extractor for academic paper search.{context_block}\nGiven the latest user message and the conversation context above, extract 5-10 English search keywords/phrases suitable for searching academic papers. If the user's message refers to a previous topic (e.g. 'more papers', 'show me 20 more'), infer the topic from context. Output ONLY the keywords, separated by spaces, no explanations."},
+            {"role": "system", "content": f"""You are a keyword extractor for academic paper search.{context_block}
+
+Given the user's research topic, generate 3 DIFFERENT sets of English search keywords.
+Each set should use different terminology, synonyms, or related concepts to maximize coverage.
+
+Rules:
+- Set 1: Direct keywords from the query
+- Set 2: Synonyms and related technical terms
+- Set 3: Broader/adjacent concepts
+
+Output format (one set per line, keywords separated by spaces):
+set1_keyword1 set1_keyword2 set1_keyword3
+set2_keyword1 set2_keyword2 set2_keyword3
+set3_keyword1 set3_keyword2 set3_keyword3
+
+Output ONLY the keyword lines, nothing else."""},
             {"role": "user", "content": query},
         ]
-        return chat_sync(messages, temperature=0.1).strip()
+
+        result = chat_sync(messages, temperature=0.2)
+        lines = [l.strip() for l in result.strip().split('\n') if l.strip()]
+        # 至少返回一组
+        if not lines:
+            lines = [query]
+        return lines[:3]  # 最多 3 组
+
+    def _multi_search(self, keyword_sets: list, per_query_top_k: int = 25) -> list:
+        """
+        用多组关键词搜索，合并去重，按最高分数排序
+        """
+        seen_ids = set()
+        merged = []
+
+        for kw_set in keyword_sets:
+            results = self.store.search(kw_set, top_k=per_query_top_k)
+            for paper, score in results:
+                pid = (paper.conference, paper.year, paper.title)
+                if pid not in seen_ids:
+                    seen_ids.add(pid)
+                    merged.append((paper, score))
+
+        # 按分数降序排序
+        merged.sort(key=lambda x: x[1], reverse=True)
+        return merged
