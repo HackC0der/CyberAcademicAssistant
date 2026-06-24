@@ -593,6 +593,70 @@ body.resizing * { cursor: col-resize !important; user-select: none !important; }
     border-radius: 6px; padding: 3px 8px; margin-top: 6px; font-size: 11px; color: var(--accent);
 }
 
+/* PDF 聊天气泡 */
+.message.pdf-bubble .message-content {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+}
+
+.pdf-bubble-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.pdf-bubble-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+}
+
+.pdf-bubble-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pdf-bubble-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdf-bubble-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.pdf-ref-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.pdf-ref-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.pdf-ref-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+}
+
 #send-btn {
     background: var(--accent); border: none; color: white;
     width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
