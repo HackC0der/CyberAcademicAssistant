@@ -96,12 +96,7 @@ def save_config(cfg: dict):
 
 @app.route("/api/config", methods=["GET"])
 def api_get_config():
-    cfg = load_config()
-    # 脱敏：不返回完整 key
-    safe = {**cfg}
-    if safe.get("api_key"):
-        safe["api_key"] = safe["api_key"][:8] + "..." if len(safe["api_key"]) > 8 else safe["api_key"]
-    return jsonify(safe)
+    return jsonify(load_config())
 
 
 @app.route("/api/config", methods=["POST"])
