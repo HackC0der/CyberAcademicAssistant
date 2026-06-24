@@ -349,6 +349,14 @@ async function sendMessage() {
     if (pendingPdf) {
         body.pdf_context = pendingPdf.text;
         body.pdf_filename = pendingPdf.filename;
+        // 在用户消息旁显示 PDF 标记
+        const userMsgEl = messagesDiv.querySelector('.message.user:last-of-type .message-content');
+        if (userMsgEl) {
+            const tag = document.createElement('div');
+            tag.className = 'pdf-tag';
+            tag.textContent = `📄 ${pendingPdf.filename}`;
+            userMsgEl.appendChild(tag);
+        }
         clearPdf();
     }
 

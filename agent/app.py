@@ -165,9 +165,14 @@ def chat():
     if not user_query:
         return jsonify({"error": "消息不能为空"}), 400
 
+    if pdf_context:
+        print(f"[PDF] 收到 PDF 上下文: {pdf_filename} ({len(pdf_context)} 字符)")
+
     def generate():
-        # ── Stage 1: 提取关键词 (0% → 30%) ──
-        yield _progress(5, "正在分析您的课题...")
+        if pdf_context:
+            yield _progress(5, f"正在分析 PDF: {pdf_filename}...")
+        else:
+            yield _progress(5, "正在分析您的课题...")
         keywords = extract_keywords(user_query, history)
         yield _progress(25, f"已提取关键词: {keywords}")
         yield _progress(30, "关键词提取完成")
@@ -219,20 +224,29 @@ def chat():
         # PDF 上下文（如果有）
         pdf_block = ""
         if pdf_context:
-            # 限制长度避免 token 过长
             truncated = pdf_context[:8000]
-            pdf_block = f"\n\n以下是用户上传的 PDF 文档内容（文件名: {pdf_filename}）:\n{truncated}\n"
+            pdf_block = f"\n\n=== 用户上传的 PDF 文档（{pdf_filename}）===\n{truncated}\n=== PDF 内容结束 ===\n"
 
-        user_prompt = f"""当前请求:
+        if pdf_context:
+            user_prompt = f"""当前请求:
+{user_query}
+
+{pdf_block}
+
+以下是论文库中的相关候选论文（可作为补充参考）:
+{papers_context}
+
+请重点分析用户上传的 PDF 文档内容，回答用户的问题。论文库结果仅作为补充参考。用中文回答。"""
+        else:
+            user_prompt = f"""当前请求:
 {user_query}
 
 提取的搜索关键词: {keywords}
 
 以下是从论文库中初步筛选出的候选论文（按相关度排序）:
 {papers_context}
-{pdf_block}
 
-请从中选出最相关的论文，并解释它们与我课题的关联。如果是"更多论文"的请求，请推荐之前未提及的论文。如果用户上传了 PDF，请结合 PDF 内容进行分析。用中文回答。"""
+请从中选出最相关的论文，并解释它们与我课题的关联。如果是"更多论文"的请求，请推荐之前未提及的论文。用中文回答。"""
 
         messages.append({"role": "user", "content": user_prompt})
 
