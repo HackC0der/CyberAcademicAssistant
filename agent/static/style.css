@@ -247,28 +247,32 @@ body {
 
 /* ========== 收起/展开按钮 ========== */
 .sidebar-toggle {
-    position: fixed;
-    left: 0;
-    bottom: 0;
-    z-index: 100;
-    width: var(--toggle-size);
-    height: var(--toggle-size);
-    background: var(--bg-sidebar);
+    background: none;
     border: 1px solid var(--border-color);
-    border-left: none;
-    border-bottom: none;
-    border-radius: 0 8px 0 0;
     color: var(--text-muted);
-    font-size: 12px;
+    border-radius: 6px;
+    width: 28px; height: 28px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: left 0.2s ease, color 0.15s;
+    font-size: 11px;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
 }
 
-.sidebar-toggle:hover { color: var(--text-primary); }
+.sidebar-toggle:hover { background: var(--bg-input); color: var(--text-primary); }
 
-/* 侧边栏展开时，按钮在侧边栏右侧 */
-.sidebar-toggle.expanded { left: var(--sidebar-width); }
+/* 侧边栏收起时，按钮浮动在左上角 */
+.sidebar.collapsed .sidebar-toggle {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
 
 /* ========== 拖拽分隔条 ========== */
 .resize-handle {

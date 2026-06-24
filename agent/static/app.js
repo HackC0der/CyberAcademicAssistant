@@ -89,7 +89,6 @@ function switchSidebarTab(tab) {
 
 function toggleSidebar() {
     sidebar.classList.toggle('collapsed');
-    sidebarToggle.classList.toggle('expanded');
     sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
     sidebarToggle.title = sidebar.classList.contains('collapsed') ? '展开侧边栏' : '收起侧边栏';
 }
