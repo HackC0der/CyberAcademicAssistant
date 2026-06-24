@@ -77,9 +77,6 @@ class DebateAgent(BaseAgent):
     route = "/api/debate"
     default_temp = 0.8
 
-    def __init__(self, store=None):
-        pass  # 不需要论文库
-
     def get_progress_info(self, data: dict) -> tuple:
         pdf_context = data.get("pdf_context", "")
         pdf_filename = data.get("pdf_filename", "")

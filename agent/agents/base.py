@@ -17,6 +17,9 @@ class BaseAgent(ABC):
     route: str = ""      # API 路由，如 "/api/chat"
     default_temp: float = 0.7  # 默认温度
 
+    def __init__(self, store=None):
+        pass
+
     @abstractmethod
     def build_messages(self, data: dict) -> list:
         """构建 LLM 消息列表（含 system prompt 和用户输入）"""
