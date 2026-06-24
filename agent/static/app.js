@@ -180,20 +180,28 @@ function updatePlaceholder() {
 
 function initTheme() {
     const THEME_KEY = 'literature_agent_theme';
-    const toggle = document.getElementById('theme-toggle');
     const saved = localStorage.getItem(THEME_KEY) || 'dark';
     applyTheme(saved);
-    toggle.addEventListener('click', () => {
-        const next = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark' ? 'light' : 'dark';
-        applyTheme(next);
-        localStorage.setItem(THEME_KEY, next);
+
+    // 设置页的主题按钮
+    document.querySelectorAll('.theme-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyTheme(btn.dataset.theme);
+            localStorage.setItem(THEME_KEY, btn.dataset.theme);
+        });
     });
 }
 
 function applyTheme(theme) {
-    const toggle = document.getElementById('theme-toggle');
-    if (theme === 'light') { document.documentElement.setAttribute('data-theme', 'light'); toggle.textContent = '☀️'; toggle.title = '切换暗色'; }
-    else { document.documentElement.removeAttribute('data-theme'); toggle.textContent = '🌙'; toggle.title = '切换亮色'; }
+    if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+    // 更新设置页按钮状态
+    document.querySelectorAll('.theme-opt').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
 }
 
 // ========== PDF 上传 ==========

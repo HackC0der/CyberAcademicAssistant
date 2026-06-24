@@ -193,6 +193,38 @@ body {
     cursor: pointer;
 }
 
+/* 主题切换按钮组 */
+.theme-toggle-group {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.theme-opt {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.theme-opt:first-child { border-right: 1px solid var(--border-color); }
+
+.theme-opt:hover {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+}
+
+.theme-opt.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+}
+
 .settings-save-btn {
     width: 100%;
     padding: 10px;

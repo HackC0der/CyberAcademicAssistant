@@ -61,6 +61,16 @@
                     </div>
                 </div>
                 <div class="settings-section">
+                    <h4>外观</h4>
+                    <div class="setting-field">
+                        <label>主题</label>
+                        <div class="theme-toggle-group">
+                            <button class="theme-opt" data-theme="dark">🌙 暗色</button>
+                            <button class="theme-opt" data-theme="light">☀️ 亮色</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-section">
                     <button id="cfg-save-btn" class="settings-save-btn">💾 保存配置</button>
                     <div id="cfg-save-status" class="settings-status"></div>
                 </div>
@@ -69,9 +79,6 @@
             <!-- 底部固定栏 -->
             <div class="sidebar-footer">
                 <div id="stats-info" class="stats-info">加载中...</div>
-                <div class="footer-actions">
-                    <button id="theme-toggle" class="footer-btn" title="切换主题">🌙</button>
-                </div>
             </div>
         </aside>
 
@@ -118,6 +125,7 @@
                 <div id="pdf-bar" class="pdf-bar" style="display:none;"></div>
 
                 <div class="input-wrapper">
+                    <textarea id="user-input" placeholder="描述你的研究课题..." rows="1" autofocus></textarea>
                     <input type="file" id="pdf-upload" accept=".pdf" hidden />
                     <button id="pdf-btn" title="上传 PDF" class="pdf-upload-btn">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -127,7 +135,6 @@
                             <line x1="9" y1="15" x2="15" y2="15"/>
                         </svg>
                     </button>
-                    <textarea id="user-input" placeholder="描述你的研究课题..." rows="1" autofocus></textarea>
                     <button id="send-btn" title="发送">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
