@@ -8,9 +8,13 @@ import base64
 import fitz  # PyMuPDF
 
 
-def parse_pdf(pdf_bytes: bytes) -> dict:
+def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
     """
-    解析 PDF 文件，提取文本和图片
+    解析 PDF 文件，提取文本
+
+    参数:
+        pdf_bytes: PDF 文件字节
+        extract_images: 是否提取图片（默认 False，避免响应过大）
 
     返回:
         {
@@ -33,23 +37,24 @@ def parse_pdf(pdf_bytes: bytes) -> dict:
         if text:
             pages_text.append(f"--- 第 {page_num + 1} 页 ---\n{text}")
 
-        # 提取图片
-        for img_index, img in enumerate(page.get_images(full=True)):
-            xref = img[0]
-            try:
-                base_image = doc.extract_image(xref)
-                if base_image and base_image.get("image"):
-                    img_bytes = base_image["image"]
-                    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-                    ext = base_image.get("ext", "png")
-                    images_b64.append({
-                        "page": page_num + 1,
-                        "index": img_index,
-                        "ext": ext,
-                        "data": img_b64,
-                    })
-            except Exception:
-                continue
+        # 提取图片（仅在显式请求时）
+        if extract_images:
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                try:
+                    base_image = doc.extract_image(xref)
+                    if base_image and base_image.get("image"):
+                        img_bytes = base_image["image"]
+                        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                        ext = base_image.get("ext", "png")
+                        images_b64.append({
+                            "page": page_num + 1,
+                            "index": img_index,
+                            "ext": ext,
+                            "data": img_b64,
+                        })
+                except Exception:
+                    continue
 
     doc.close()
 

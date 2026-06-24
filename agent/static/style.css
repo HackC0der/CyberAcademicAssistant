@@ -483,9 +483,14 @@ body.resizing * { cursor: col-resize !important; user-select: none !important; }
 .persona-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 
 .input-wrapper {
-    display: flex; align-items: flex-end; background: var(--bg-input);
-    border: 1px solid var(--border-color); border-radius: 16px;
-    padding: 8px 8px 8px 16px; transition: border-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 6px 8px 6px 16px;
+    transition: border-color 0.2s;
 }
 
 .input-wrapper:focus-within { border-color: var(--accent); }
