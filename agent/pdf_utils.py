@@ -1,39 +1,78 @@
 """
 PDF 解析工具
-使用 PyMuPDF 提取文本，带内存缓存
+使用 PyMuPDF 提取文本，带磁盘缓存（MD5 去重）
 """
 
+import json
 import base64
 import hashlib
+from pathlib import Path
 
 import fitz  # PyMuPDF
 
-# 缓存：key=文件MD5, value=解析结果
-_cache: dict[str, dict] = {}
-CACHE_MAX = 50  # 最多缓存 50 个 PDF
+CACHE_DIR = Path(__file__).resolve().parent / "data" / "pdf_cache"
+
+# 内存缓存（热数据）
+_mem_cache: dict[str, dict] = {}
+MEM_CACHE_MAX = 20
+
+
+def _ensure_cache_dir():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _cache_path(cache_key: str) -> Path:
+    return CACHE_DIR / f"{cache_key}.json"
+
+
+def _load_from_disk(cache_key: str) -> dict | None:
+    """从磁盘加载缓存"""
+    path = _cache_path(cache_key)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _save_to_disk(cache_key: str, result: dict):
+    """写入磁盘缓存"""
+    _ensure_cache_dir()
+    _cache_path(cache_key).write_text(
+        json.dumps(result, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
     """
     解析 PDF 文件，提取文本
 
-    参数:
-        pdf_bytes: PDF 文件字节
-        extract_images: 是否提取图片（默认 False，避免响应过大）
+    缓存策略：内存 → 磁盘 → 解析
 
     返回:
         {
             "pages": int,
             "text": str,
             "text_length": int,
-            "images": [{"page": int, "index": int, "ext": str, "data": str}, ...]
+            "images": list,
+            "cache_key": str  # MD5 哈希
         }
     """
-    # 缓存查找
     cache_key = hashlib.md5(pdf_bytes).hexdigest()
-    if cache_key in _cache:
-        return _cache[cache_key]
 
+    # 1. 内存缓存命中
+    if cache_key in _mem_cache:
+        return _mem_cache[cache_key]
+
+    # 2. 磁盘缓存命中
+    disk_result = _load_from_disk(cache_key)
+    if disk_result is not None:
+        # 加入内存缓存
+        _mem_cache[cache_key] = disk_result
+        return disk_result
+
+    # 3. 解析 PDF
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     pages_text = []
@@ -42,12 +81,10 @@ def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
     for page_num in range(len(doc)):
         page = doc[page_num]
 
-        # 提取文本
         text = page.get_text("text").strip()
         if text:
             pages_text.append(f"--- 第 {page_num + 1} 页 ---\n{text}")
 
-        # 提取图片（仅在显式请求时）
         if extract_images:
             for img_index, img in enumerate(page.get_images(full=True)):
                 xref = img[0]
@@ -75,12 +112,15 @@ def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
         "text": full_text,
         "text_length": len(full_text),
         "images": images_b64,
+        "cache_key": cache_key,
     }
 
-    # 写入缓存（超过上限时清理最早的）
-    if len(_cache) >= CACHE_MAX:
-        oldest = next(iter(_cache))
-        del _cache[oldest]
-    _cache[cache_key] = result
+    # 写入磁盘 + 内存
+    _save_to_disk(cache_key, result)
+
+    if len(_mem_cache) >= MEM_CACHE_MAX:
+        oldest = next(iter(_mem_cache))
+        del _mem_cache[oldest]
+    _mem_cache[cache_key] = result
 
     return result
