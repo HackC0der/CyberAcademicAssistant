@@ -384,6 +384,7 @@ body.resizing * { cursor: col-resize !important; user-select: none !important; }
 .message.assistant[data-agent="literature"] .message-avatar { background: #6c5ce7; }
 .message.assistant[data-agent="reviewer"] .message-avatar { background: #e74c3c; }
 .message.assistant[data-agent="mentor"] .message-avatar { background: #27ae60; }
+.message.assistant[data-agent="quiz"] .message-avatar { background: #e67e22; }
 
 .message-content { flex: 1; min-width: 0; }
 .message-content p { margin-bottom: 8px; line-height: 1.7; }

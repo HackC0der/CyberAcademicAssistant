@@ -171,6 +171,9 @@ function updatePlaceholder() {
     if (currentMode === 'literature') {
         userInput.placeholder = '描述你的研究课题...';
         hint.textContent = '按 Enter 发送，Shift+Enter 换行 | TF-IDF 初筛 + LLM 语义排序';
+    } else if (currentMode === 'quiz') {
+        userInput.placeholder = '上传论文 PDF 后，回答 AI 的问题...';
+        hint.textContent = '按 Enter 发送 | 📝 精读模式：上传论文，回答问题，检验理解';
     } else if (currentPersona === 'reviewer') {
         userInput.placeholder = '描述你的研究想法，审稿人将进行严厉质疑...';
         hint.textContent = '按 Enter 发送 | 🔍 审稿人模式：可随时切换为导师模式';
@@ -385,6 +388,7 @@ function renderSidebar() {
         const lastAi = [...(session.messages || [])].reverse().find(m => m.role === 'assistant');
         if (lastAi && lastAi.persona === 'reviewer') icon.textContent = '🔍';
         else if (lastAi && lastAi.persona === 'mentor') icon.textContent = '🎓';
+        else if (lastAi && lastAi.persona === 'quiz') icon.textContent = '📝';
         else icon.textContent = '📚';
         item.appendChild(icon);
         if (activeRequests.has(session.id)) {
@@ -510,6 +514,9 @@ async function sendMessage() {
     if (currentMode === 'debate') {
         apiEndpoint = '/api/debate';
         body = { message: text, history: history, mode: currentPersona, ...settings };
+    } else if (currentMode === 'quiz') {
+        apiEndpoint = '/api/quiz';
+        body = { message: text, history: history, ...settings };
     } else {
         apiEndpoint = '/api/chat';
         body = { message: text, history: history, ...settings };
@@ -582,11 +589,13 @@ function onComplete(sid) {
 
 function getAgentAvatar() {
     if (currentMode === 'debate') return currentPersona === 'mentor' ? '🎓' : '🔍';
+    if (currentMode === 'quiz') return '📝';
     return '📚';
 }
 
 function getAgentType() {
     if (currentMode === 'debate') return currentPersona === 'mentor' ? 'mentor' : 'reviewer';
+    if (currentMode === 'quiz') return 'quiz';
     return 'literature';
 }
 
