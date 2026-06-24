@@ -1,11 +1,16 @@
 """
 PDF 解析工具
-使用 PyMuPDF 提取文本和图片
+使用 PyMuPDF 提取文本，带内存缓存
 """
 
 import base64
+import hashlib
 
 import fitz  # PyMuPDF
+
+# 缓存：key=文件MD5, value=解析结果
+_cache: dict[str, dict] = {}
+CACHE_MAX = 50  # 最多缓存 50 个 PDF
 
 
 def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
@@ -24,6 +29,11 @@ def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
             "images": [{"page": int, "index": int, "ext": str, "data": str}, ...]
         }
     """
+    # 缓存查找
+    cache_key = hashlib.md5(pdf_bytes).hexdigest()
+    if cache_key in _cache:
+        return _cache[cache_key]
+
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     pages_text = []
@@ -60,9 +70,17 @@ def parse_pdf(pdf_bytes: bytes, extract_images: bool = False) -> dict:
 
     full_text = "\n\n".join(pages_text)
 
-    return {
+    result = {
         "pages": len(pages_text),
         "text": full_text,
         "text_length": len(full_text),
         "images": images_b64,
     }
+
+    # 写入缓存（超过上限时清理最早的）
+    if len(_cache) >= CACHE_MAX:
+        oldest = next(iter(_cache))
+        del _cache[oldest]
+    _cache[cache_key] = result
+
+    return result
