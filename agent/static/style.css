@@ -453,6 +453,101 @@ body.resizing * {
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.9em;
+    font-family: "SFMono-Regular", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+}
+
+/* 代码块 */
+.message-content pre {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.message-content pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+/* 表格外层容器 - 支持横向滚动 */
+.message-content .table-wrapper {
+    overflow-x: auto;
+    max-width: 100%;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 滚动条样式 */
+.message-content .table-wrapper::-webkit-scrollbar {
+    height: 6px;
+}
+
+.message-content .table-wrapper::-webkit-scrollbar-track {
+    background: var(--bg-input);
+    border-radius: 0 0 8px 8px;
+}
+
+.message-content .table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+/* 表格本体 */
+.message-content table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 400px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 表头 */
+.message-content table thead {
+    background: var(--bg-input);
+}
+
+.message-content table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+/* 表格单元格 */
+.message-content table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    vertical-align: top;
+}
+
+/* 表格行悬停 */
+.message-content table tbody tr:hover {
+    background: var(--accent-soft);
+}
+
+/* 表格斑马纹 */
+.message-content table tbody tr:nth-child(even) {
+    background: rgba(128, 128, 128, 0.04);
+}
+
+/* 表格最后一行无底边框 */
+.message-content table tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .message.user .message-content {

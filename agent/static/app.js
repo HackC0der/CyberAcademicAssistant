@@ -541,8 +541,15 @@ function appendMessageToDOM(role, content, agentType) {
 
 function renderMarkdown(text) {
     if (!text) return '';
-    if (typeof marked !== 'undefined') return marked.parse(text);
-    return text.replace(/\n/g, '<br>');
+    let html;
+    if (typeof marked !== 'undefined') {
+        html = marked.parse(text);
+    } else {
+        html = text.replace(/\n/g, '<br>');
+    }
+    // 将 <table> 包裹在可滚动容器中
+    html = html.replace(/<table/g, '<div class="table-wrapper"><table').replace(/<\/table>/g, '</table></div>');
+    return html;
 }
 
 function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
