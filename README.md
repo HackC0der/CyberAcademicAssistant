@@ -36,12 +36,13 @@
 git clone https://github.com/your-username/4TH-CyberSecurityConference.git
 cd 4TH-CyberSecurityConference
 
-# 安装爬虫依赖
-pip install requests beautifulsoup4 lxml
+# 使用 uv 管理依赖（推荐）
+uv sync                   # 安装爬虫依赖
+uv sync --extra agent     # 安装爬虫 + 智能体依赖
 
-# 安装智能体依赖
-cd agent
-pip install -r requirements.txt
+# 或使用 pip（不推荐，会污染全局环境）
+pip install -e .
+pip install -e ".[agent]"
 ```
 
 ### 2. 配置 LLM
@@ -61,15 +62,15 @@ pip install -r requirements.txt
 ### 3. 爬取论文数据（可选）
 
 ```bash
-bash crawl_all.sh           # 一键爬取所有会议
-bash crawl_all.sh ndss ccs  # 仅爬取指定会议
+uv run bash crawl_all.sh           # 一键爬取所有会议
+uv run bash crawl_all.sh ndss ccs  # 仅爬取指定会议
 ```
 
 ### 4. 启动智能体平台
 
 ```bash
 cd agent
-python app.py
+uv run python app.py
 ```
 
 浏览器访问 http://localhost:5000

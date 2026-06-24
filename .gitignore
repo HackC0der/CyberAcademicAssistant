@@ -7,6 +7,9 @@ build/
 .venv/
 venv/
 
+# uv
+uv.lock
+
 # 论文爬取数据（体积大，不纳入版本控制）
 NDSS/
 USENIX/

@@ -31,8 +31,9 @@
 ## 常用命令
 
 ```bash
-bash crawl_all.sh       # 爬取论文
-cd agent && python app.py  # 启动平台
+uv sync --extra agent   # 安装依赖
+uv run bash crawl_all.sh  # 爬取论文
+cd agent && uv run python app.py  # 启动平台
 ```
 
 ## 开发规范
