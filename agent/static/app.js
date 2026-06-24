@@ -277,6 +277,7 @@ function renderPdfBubble(pdf) {
     const div = document.createElement('div');
     div.className = 'message pdf-bubble';
     div.dataset.pdfId = pdf.id;
+    const isRef = refTags.some(t => t.id === pdf.id);
     div.innerHTML = `
         <div class="message-avatar" data-agent="literature">📄</div>
         <div class="message-content">
@@ -286,7 +287,9 @@ function renderPdfBubble(pdf) {
                     <div class="pdf-bubble-name">${pdf.filename}</div>
                     <div class="pdf-bubble-meta">${pdf.pages} 页 · ${pdf.text_length} 字</div>
                 </div>
-                <button class="pdf-ref-btn" data-pdf-id="${pdf.id}">引用论文</button>
+                <button class="pdf-ref-btn ${isRef ? 'active' : ''}" data-pdf-id="${pdf.id}">
+                    ${isRef ? '✓ 已引用' : '引用论文'}
+                </button>
             </div>
         </div>
     `;
@@ -299,16 +302,33 @@ function renderPdfBubble(pdf) {
 }
 
 function addRefTag(pdf) {
-    // 去重
     if (refTags.find(t => t.id === pdf.id)) return;
-
     refTags.push({ id: pdf.id, filename: pdf.filename, text: pdf.text });
     renderRefTags();
+    syncPdfRefState(pdf.id, true);
 }
 
 function removeRefTag(pdfId) {
     refTags = refTags.filter(t => t.id !== pdfId);
     renderRefTags();
+    syncPdfRefState(pdfId, false);
+}
+
+function syncPdfRefState(pdfId, referenced) {
+    // 同步引用状态到 session.pdfs
+    const session = getCachedSession(currentSessionId);
+    if (!session || !session.pdfs) return;
+    const pdf = session.pdfs.find(p => p.id === pdfId);
+    if (pdf) {
+        pdf.referenced = referenced;
+        saveSession(session);
+    }
+    // 更新 PDF 气泡按钮状态
+    const btn = messagesDiv.querySelector(`.pdf-ref-btn[data-pdf-id="${pdfId}"]`);
+    if (btn) {
+        btn.classList.toggle('active', referenced);
+        btn.textContent = referenced ? '✓ 已引用' : '引用论文';
+    }
 }
 
 function renderRefTags() {
@@ -440,8 +460,10 @@ function switchSession(id) {
     const session = getCachedSession(id);
     if (!session) return;
 
-    // 清空引用标签
-    refTags = [];
+    // 从会话恢复引用标签
+    refTags = (session.pdfs || []).filter(p => p.referenced).map(p => ({
+        id: p.id, filename: p.filename, text: p.text,
+    }));
     renderRefTags();
 
     welcomeScreen.classList.add('hidden');
@@ -483,9 +505,25 @@ function updateBtnState() {
 // ========== 发送消息 ==========
 
 async function sendMessage() {
-    const text = userInput.value.trim();
-    if (!text) return;
+    let text = userInput.value.trim();
     if (currentSessionId && activeRequests.has(currentSessionId)) return;
+
+    // 求索解惑模式必须引用论文
+    if (currentMode === 'quiz' && getReferencedPdfs().length === 0) {
+        alert('请先上传并引用一篇论文 PDF');
+        return;
+    }
+
+    // 无输入但有引用 PDF 时，使用默认提示词
+    if (!text) {
+        if (getReferencedPdfs().length > 0) {
+            text = currentMode === 'quiz'
+                ? '请基于论文内容提出深度问题'
+                : '请分析这篇论文';
+        } else {
+            return;
+        }
+    }
 
     welcomeScreen.classList.add('hidden');
 

@@ -642,6 +642,10 @@ body.resizing * { cursor: col-resize !important; user-select: none !important; }
 }
 
 /* PDF 聊天气泡 */
+.message.pdf-bubble .message-avatar {
+    background: #8e44ad;
+}
+
 .message.pdf-bubble .message-content {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
