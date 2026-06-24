@@ -1,6 +1,6 @@
 """
 LLM API 调用封装
-支持 OpenAI 兼容接口，通过 .env 文件或环境变量配置
+配置从 config.json 读取
 """
 
 import os
@@ -9,25 +9,41 @@ import requests
 from pathlib import Path
 from typing import Generator
 
-from dotenv import load_dotenv
+CONFIG_FILE = Path(__file__).resolve().parent / "config.json"
 
-# 加载 .env 文件（agent/.env 或项目根目录 .env）
-_env_path = Path(__file__).resolve().parent / ".env"
-load_dotenv(_env_path)
 
-API_BASE = os.environ.get("LLM_API_BASE", "https://api.openai.com/v1")
-API_KEY = os.environ.get("LLM_API_KEY", "")
-MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+def _load_config() -> dict:
+    if not CONFIG_FILE.exists():
+        return {}
+    try:
+        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+# 初始加载
+_config = _load_config()
+API_BASE = _config.get("api_base", os.environ.get("LLM_API_BASE", "https://api.openai.com/v1"))
+API_KEY = _config.get("api_key", os.environ.get("LLM_API_KEY", ""))
+MODEL = _config.get("model", os.environ.get("LLM_MODEL", "gpt-4o-mini"))
+
+
+def reload_config():
+    """热重载配置（由 config API 调用）"""
+    global API_BASE, API_KEY, MODEL, _config
+    _config = _load_config()
+    API_BASE = _config.get("api_base", API_BASE)
+    API_KEY = _config.get("api_key", API_KEY)
+    MODEL = _config.get("model", MODEL)
+    print(f"[配置] 已重载: model={MODEL}, base={API_BASE}")
+
 
 if not API_KEY:
-    print("[警告] 未设置 LLM_API_KEY，请在 agent/.env 文件中配置或通过 export LLM_API_KEY=xxx 设置")
+    print("[警告] 未配置 API Key，请在 agent/config.json 中设置或通过环境变量 LLM_API_KEY 指定")
 
 
 def chat_stream(messages: list, temperature: float = 0.7, max_tokens: int = None) -> Generator[str, None, None]:
-    """
-    流式调用 LLM Chat API
-    yields 每个 token 的文本片段
-    """
+    """流式调用 LLM Chat API"""
     url = f"{API_BASE}/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -43,7 +59,7 @@ def chat_stream(messages: list, temperature: float = 0.7, max_tokens: int = None
         payload["max_tokens"] = max_tokens
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=60)
+        resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=120)
         resp.raise_for_status()
 
         for line in resp.iter_lines():
@@ -71,10 +87,7 @@ def chat_stream(messages: list, temperature: float = 0.7, max_tokens: int = None
 
 
 def chat_sync(messages: list, temperature: float = 0.7) -> str:
-    """
-    同步调用 LLM Chat API
-    返回完整响应文本
-    """
+    """同步调用 LLM Chat API"""
     url = f"{API_BASE}/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -88,7 +101,7 @@ def chat_sync(messages: list, temperature: float = 0.7) -> str:
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp = requests.post(url, headers=headers, json=payload, timeout=120)
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"]

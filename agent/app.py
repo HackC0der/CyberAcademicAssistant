@@ -76,6 +76,48 @@ paper_count = store.load()
 print(f"论文库加载完成: 共 {paper_count} 篇论文")
 
 
+# ========== 配置管理 ==========
+
+CONFIG_FILE = Path(__file__).resolve().parent / "config.json"
+
+
+def load_config() -> dict:
+    if not CONFIG_FILE.exists():
+        return {}
+    try:
+        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_config(cfg: dict):
+    CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=4), encoding="utf-8")
+
+
+@app.route("/api/config", methods=["GET"])
+def api_get_config():
+    cfg = load_config()
+    # 脱敏：不返回完整 key
+    safe = {**cfg}
+    if safe.get("api_key"):
+        safe["api_key"] = safe["api_key"][:8] + "..." if len(safe["api_key"]) > 8 else safe["api_key"]
+    return jsonify(safe)
+
+
+@app.route("/api/config", methods=["POST"])
+def api_set_config():
+    data = request.get_json()
+    cfg = load_config()
+    for key in ("api_base", "api_key", "model", "temperature", "max_tokens"):
+        if key in data:
+            cfg[key] = data[key]
+    save_config(cfg)
+    # 重新加载 llm_client 配置
+    import llm_client
+    llm_client.reload_config()
+    return jsonify({"ok": True})
+
+
 # ========== 页面路由 ==========
 
 @app.route("/")

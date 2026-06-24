@@ -10,7 +10,7 @@
 <body>
     <div class="app-container">
         <!-- 侧边栏 -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>🎓 学术智能体</h2>
                 <button id="new-chat-btn" title="新对话">
@@ -19,15 +19,63 @@
                     </svg>
                 </button>
             </div>
-            <div class="sidebar-content">
+
+            <!-- 侧边栏标签页 -->
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="sessions">💬 会话</button>
+                <button class="sidebar-tab" data-tab="settings">⚙️ 设置</button>
+            </div>
+
+            <!-- 会话列表 -->
+            <div class="sidebar-panel" id="panel-sessions">
                 <div id="chat-history"></div>
             </div>
+
+            <!-- 设置面板 -->
+            <div class="sidebar-panel" id="panel-settings" style="display:none;">
+                <div class="settings-section">
+                    <h4>模型配置</h4>
+                    <div class="setting-field">
+                        <label>API Base URL</label>
+                        <input type="text" id="cfg-api-base" placeholder="https://api.openai.com/v1" />
+                    </div>
+                    <div class="setting-field">
+                        <label>API Key</label>
+                        <input type="password" id="cfg-api-key" placeholder="sk-..." />
+                    </div>
+                    <div class="setting-field">
+                        <label>Model</label>
+                        <input type="text" id="cfg-model" placeholder="gpt-4o-mini" />
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h4>生成参数</h4>
+                    <div class="setting-field">
+                        <label>Temperature: <span id="temp-value">0.7</span></label>
+                        <input type="range" id="cfg-temperature" min="0" max="2" step="0.1" value="0.7" />
+                    </div>
+                    <div class="setting-field">
+                        <label>Max Tokens: <span id="max-tokens-value">不限制</span></label>
+                        <input type="range" id="cfg-max-tokens" min="0" max="16000" step="256" value="0" />
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <button id="cfg-save-btn" class="settings-save-btn">💾 保存配置</button>
+                    <div id="cfg-save-status" class="settings-status"></div>
+                </div>
+            </div>
+
+            <!-- 底部固定栏 -->
             <div class="sidebar-footer">
                 <div id="stats-info" class="stats-info">加载中...</div>
-                <button id="settings-toggle" class="theme-toggle" title="设置">⚙️</button>
-                <button id="theme-toggle" class="theme-toggle" title="切换主题">🌙</button>
+                <div class="footer-actions">
+                    <button id="theme-toggle" class="footer-btn" title="切换主题">🌙</button>
+                </div>
             </div>
         </aside>
+
+        <!-- 收起/展开按钮 -->
+        <button id="sidebar-toggle" class="sidebar-toggle" title="收起侧边栏">◀</button>
 
         <div class="resize-handle" id="resize-handle"></div>
 
@@ -56,13 +104,11 @@
 
             <!-- 输入区域 -->
             <div class="input-area">
-                <!-- 智能体模式选择 -->
                 <div class="agent-bar">
                     <div class="agent-tabs">
                         <button class="agent-tab active" data-mode="literature">📚 文献匹配</button>
                         <button class="agent-tab" data-mode="debate">⚔️ Idea 辩论</button>
                     </div>
-                    <!-- 辩论人格开关（仅 debate 模式显示） -->
                     <div class="persona-switch" id="persona-switch" style="display:none;">
                         <span class="persona-label">人格：</span>
                         <button class="persona-btn active" data-persona="reviewer">🔍 审稿人</button>
@@ -87,34 +133,6 @@
                 <div class="input-hint" id="input-hint">按 Enter 发送，Shift+Enter 换行</div>
             </div>
         </main>
-    </div>
-
-    <!-- 设置面板 -->
-    <div id="settings-panel" class="settings-panel" style="display:none;">
-        <div class="settings-header">
-            <h3>⚙️ 模型设置</h3>
-            <button id="settings-close" class="settings-close">×</button>
-        </div>
-        <div class="settings-body">
-            <div class="setting-item">
-                <label>温度 (Temperature): <span id="temp-value">0.7</span></label>
-                <input type="range" id="setting-temperature" min="0" max="2" step="0.1" value="0.7" />
-                <div class="setting-hint">低 = 更精确，高 = 更发散</div>
-            </div>
-            <div class="setting-item">
-                <label>最大输出长度 (Max Tokens): <span id="max-tokens-value">不限制</span></label>
-                <input type="range" id="setting-max-tokens" min="0" max="16000" step="256" value="0" />
-                <div class="setting-hint">0 = 不限制（由模型决定）</div>
-            </div>
-            <div class="setting-item">
-                <label>扩展思考 (Think Mode)</label>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="setting-think" />
-                    <span class="toggle-slider"></span>
-                </div>
-                <div class="setting-hint">启用更深层推理（消耗更多 token）</div>
-            </div>
-        </div>
     </div>
 
     <script src="/static/app.js"></script>
