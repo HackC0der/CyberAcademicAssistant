@@ -23,7 +23,7 @@ if not API_KEY:
     print("[警告] 未设置 LLM_API_KEY，请在 agent/.env 文件中配置或通过 export LLM_API_KEY=xxx 设置")
 
 
-def chat_stream(messages: list, temperature: float = 0.7) -> Generator[str, None, None]:
+def chat_stream(messages: list, temperature: float = 0.7, max_tokens: int = None) -> Generator[str, None, None]:
     """
     流式调用 LLM Chat API
     yields 每个 token 的文本片段
@@ -39,6 +39,8 @@ def chat_stream(messages: list, temperature: float = 0.7) -> Generator[str, None
         "temperature": temperature,
         "stream": True,
     }
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
 
     try:
         resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=60)

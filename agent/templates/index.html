@@ -24,6 +24,7 @@
             </div>
             <div class="sidebar-footer">
                 <div id="stats-info" class="stats-info">加载中...</div>
+                <button id="settings-toggle" class="theme-toggle" title="设置">⚙️</button>
                 <button id="theme-toggle" class="theme-toggle" title="切换主题">🌙</button>
             </div>
         </aside>
@@ -86,6 +87,34 @@
                 <div class="input-hint" id="input-hint">按 Enter 发送，Shift+Enter 换行</div>
             </div>
         </main>
+    </div>
+
+    <!-- 设置面板 -->
+    <div id="settings-panel" class="settings-panel" style="display:none;">
+        <div class="settings-header">
+            <h3>⚙️ 模型设置</h3>
+            <button id="settings-close" class="settings-close">×</button>
+        </div>
+        <div class="settings-body">
+            <div class="setting-item">
+                <label>温度 (Temperature): <span id="temp-value">0.7</span></label>
+                <input type="range" id="setting-temperature" min="0" max="2" step="0.1" value="0.7" />
+                <div class="setting-hint">低 = 更精确，高 = 更发散</div>
+            </div>
+            <div class="setting-item">
+                <label>最大输出长度 (Max Tokens): <span id="max-tokens-value">不限制</span></label>
+                <input type="range" id="setting-max-tokens" min="0" max="16000" step="256" value="0" />
+                <div class="setting-hint">0 = 不限制（由模型决定）</div>
+            </div>
+            <div class="setting-item">
+                <label>扩展思考 (Think Mode)</label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="setting-think" />
+                    <span class="toggle-slider"></span>
+                </div>
+                <div class="setting-hint">启用更深层推理（消耗更多 token）</div>
+            </div>
+        </div>
     </div>
 
     <script src="/static/app.js"></script>

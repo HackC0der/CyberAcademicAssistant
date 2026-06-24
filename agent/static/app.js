@@ -23,6 +23,25 @@ const activeRequests = new Map();
 // PDF 上下文（上传后暂存，发送后清空）
 let pendingPdf = null;  // { filename, text, images }
 
+// LLM 设置
+const SETTINGS_KEY = 'literature_agent_settings';
+let llmSettings = loadSettings();
+
+function loadSettings() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+        return {
+            temperature: saved?.temperature ?? 0.7,
+            maxTokens: saved?.maxTokens ?? 0,
+            thinkMode: saved?.thinkMode ?? false,
+        };
+    } catch { return { temperature: 0.7, maxTokens: 0, thinkMode: false }; }
+}
+
+function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(llmSettings));
+}
+
 // ========== 会话持久化 ==========
 
 async function loadAllSessions() {
@@ -108,6 +127,9 @@ function setupEventListeners() {
     pdfUpload.addEventListener('change', handlePdfUpload);
     pdfClear.addEventListener('click', clearPdf);
 
+    // 设置面板
+    initSettingsPanel();
+
     // 示例查询
     document.querySelectorAll('.example-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -191,6 +213,51 @@ async function handlePdfUpload(e) {
 function clearPdf() {
     pendingPdf = null;
     document.getElementById('pdf-indicator').style.display = 'none';
+}
+
+// ========== 设置面板 ==========
+
+function initSettingsPanel() {
+    const panel = document.getElementById('settings-panel');
+    const toggleBtn = document.getElementById('settings-toggle');
+    const closeBtn = document.getElementById('settings-close');
+    const tempSlider = document.getElementById('setting-temperature');
+    const tempValue = document.getElementById('temp-value');
+    const maxTokensSlider = document.getElementById('setting-max-tokens');
+    const maxTokensValue = document.getElementById('max-tokens-value');
+    const thinkToggle = document.getElementById('setting-think');
+
+    // 恢复设置值
+    tempSlider.value = llmSettings.temperature;
+    tempValue.textContent = llmSettings.temperature;
+    maxTokensSlider.value = llmSettings.maxTokens;
+    maxTokensValue.textContent = llmSettings.maxTokens || '不限制';
+    thinkToggle.checked = llmSettings.thinkMode;
+
+    toggleBtn.addEventListener('click', () => {
+        panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    });
+
+    closeBtn.addEventListener('click', () => { panel.style.display = 'none'; });
+
+    tempSlider.addEventListener('input', () => {
+        const v = parseFloat(tempSlider.value);
+        tempValue.textContent = v.toFixed(1);
+        llmSettings.temperature = v;
+        saveSettings();
+    });
+
+    maxTokensSlider.addEventListener('input', () => {
+        const v = parseInt(maxTokensSlider.value);
+        maxTokensValue.textContent = v || '不限制';
+        llmSettings.maxTokens = v;
+        saveSettings();
+    });
+
+    thinkToggle.addEventListener('change', () => {
+        llmSettings.thinkMode = thinkToggle.checked;
+        saveSettings();
+    });
 }
 
 // ========== 侧边栏拖拽调整宽度 ==========
@@ -378,12 +445,16 @@ async function sendMessage() {
     // 构建历史与 API
     const history = session.messages.slice(-10);
     let apiEndpoint, body;
+    const settings = {
+        temperature: llmSettings.temperature,
+        max_tokens: llmSettings.maxTokens || undefined,
+    };
     if (currentMode === 'debate') {
         apiEndpoint = '/api/debate';
-        body = { message: text, history: history, mode: currentPersona };
+        body = { message: text, history: history, mode: currentPersona, ...settings };
     } else {
         apiEndpoint = '/api/chat';
-        body = { message: text, history: history };
+        body = { message: text, history: history, ...settings };
     }
 
     // 附带 PDF 上下文

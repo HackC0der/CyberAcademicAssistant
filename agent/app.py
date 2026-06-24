@@ -162,6 +162,9 @@ def chat():
     # PDF 上下文（可选）
     pdf_context = data.get("pdf_context", "")
     pdf_filename = data.get("pdf_filename", "")
+    # LLM 设置
+    temperature = data.get("temperature", 0.7)
+    max_tokens = data.get("max_tokens", None)
     if not user_query:
         return jsonify({"error": "消息不能为空"}), 400
 
@@ -252,9 +255,8 @@ def chat():
 
         yield _progress(55, "AI 正在语义分析与排序...")
         token_count = 0
-        for token in chat_stream(messages):
+        for token in chat_stream(messages, temperature=temperature, max_tokens=max_tokens):
             token_count += 1
-            # 每收到一定量 token 后更新进度（55% → 95%）
             if token_count % 20 == 0:
                 pct = min(55 + token_count, 95)
                 yield _progress(pct, "AI 正在生成回答...")
@@ -345,23 +347,23 @@ def debate():
     data = request.get_json()
     user_query = data.get("message", "").strip()
     history = data.get("history", [])
-    mode = data.get("mode", "reviewer")  # "reviewer" 或 "mentor"
+    mode = data.get("mode", "reviewer")
+    pdf_context = data.get("pdf_context", "")
+    pdf_filename = data.get("pdf_filename", "")
+    # LLM 设置
+    temperature = data.get("temperature", 0.8)
+    max_tokens = data.get("max_tokens", None)
 
     if not user_query:
         return jsonify({"error": "消息不能为空"}), 400
 
-    # 选择系统 prompt
     if mode == "mentor":
         system_prompt = MENTOR_SYSTEM_PROMPT
     else:
         system_prompt = REVIEWER_SYSTEM_PROMPT
 
-    # 构建完整消息
-    messages = [
-        {"role": "system", "content": system_prompt},
-    ]
+    messages = [{"role": "system", "content": system_prompt}]
 
-    # 添加历史对话
     if history:
         for msg in history[-10:]:
             messages.append({
@@ -369,15 +371,24 @@ def debate():
                 "content": msg.get("content", "")[:2000],
             })
 
-    messages.append({"role": "user", "content": user_query})
+    # 附带 PDF 上下文
+    user_content = user_query
+    if pdf_context:
+        truncated = pdf_context[:8000]
+        user_content = f"{user_query}\n\n=== 用户上传的 PDF 文档（{pdf_filename}）===\n{truncated}\n=== PDF 内容结束 ==="
+
+    messages.append({"role": "user", "content": user_content})
 
     def generate():
-        yield _progress(10, "正在深度分析您的研究想法...")
+        if pdf_context:
+            yield _progress(10, f"正在分析 PDF: {pdf_filename}...")
+        else:
+            yield _progress(10, "正在深度分析您的研究想法...")
         token_count = 0
-        for token in chat_stream(messages, temperature=0.8):
+        for token in chat_stream(messages, temperature=temperature, max_tokens=max_tokens):
             token_count += 1
             if token_count % 30 == 0:
-                yield _progress(min(10 + token_count // 3, 95), "正在生成批判性分析...")
+                yield _progress(min(10 + token_count // 3, 95), "正在生成分析...")
             yield f"data: {json.dumps({'token': token})}\n\n"
 
         yield _progress(100, "完成")
