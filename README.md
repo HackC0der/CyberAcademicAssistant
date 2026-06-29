@@ -2,6 +2,12 @@
 
 网络安全四大顶会（NDSS、USENIX Security、IEEE S&P、CCS）论文爬虫与学术智能体平台。
 
+![image-20260629115541290](./assets/image-20260629115541290.png)
+
+![image-20260629115721752](./assets/image-20260629115721752.png)
+
+![image-20260629115502157](./assets/image-20260629115502157.png)
+
 ## 功能概览
 
 ### 📚 论文爬虫
@@ -30,13 +36,15 @@
 | | 解惑 ✅ | 提问论文核心问题，评判回答时**指出错误并给出正确答案** |
 | **📄 PDF 解读** | — | 上传 PDF 后引用，AI 解析内容进行对话 |
 
+
+
 ## 快速开始
 
 ### 1. 环境准备
 
 ```bash
-git clone https://github.com/your-username/4TH-CyberSecurityConference.git
-cd 4TH-CyberSecurityConference
+git clone https://github.com/HackC0der/CyberAcademicAssistant.git
+cd CyberAcademicAssistant
 
 # 使用 uv 管理依赖（推荐）
 uv sync                   # 安装爬虫依赖
