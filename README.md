@@ -2,11 +2,11 @@
 
 网络安全四大顶会（NDSS、USENIX Security、IEEE S&P、CCS）论文爬虫与学术智能体平台。
 
-![image-20260629115541290](./assets/image-20260629115541290.png)
+![image-20260629115541290](https://github.com/HackC0der/CyberAcademicAssistant/blob/main/assets/image-20260629115541290.png)
 
-![image-20260629115721752](./assets/image-20260629115721752.png)
+![image-20260629115721752](https://github.com/HackC0der/CyberAcademicAssistant/blob/main/assets/image-20260629115721752.png)
 
-![image-20260629115502157](./assets/image-20260629115502157.png)
+![image-20260629115502157](https://github.com/HackC0der/CyberAcademicAssistant/blob/main/assets/image-20260629115502157.png)
 
 ## 功能概览
 
