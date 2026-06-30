@@ -100,6 +100,7 @@ uv run python app.py
 │   │   └── quiz.py             # 求索解惑（求索 + 解惑）
 │   ├── llm_client.py           # LLM API 封装
 │   ├── paper_store.py          # TF-IDF 论文索引与检索
+│   ├── pdf_export.py           # 会话导出 PDF/Markdown（MD→HTML→WeasyPrint）
 │   ├── pdf_utils.py            # PDF 解析（带磁盘缓存）
 │   ├── config.json             # LLM 配置（git 忽略）
 │   ├── data/                   # 运行时数据（git 忽略）

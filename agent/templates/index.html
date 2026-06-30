@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学术智能体平台</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -13,12 +15,23 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <button id="sidebar-toggle" class="sidebar-toggle" title="收起侧边栏">◀</button>
-                <h2>🎓 学术智能体</h2>
-                <button id="new-chat-btn" title="新对话">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                </button>
+                <h2 id="platform-label">🎓 学术智能体</h2>
+                <div class="header-actions">
+                    <div class="platform-dropdown-wrap">
+                        <button class="platform-btn" id="platform-btn" title="切换平台">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M7 10l5 5 5-5"/></svg>
+                        </button>
+                        <div class="platform-dropdown" id="platform-dropdown">
+                            <button data-platform="academic">🎓 学术智能体</button>
+                            <button data-platform="polish">📝 论文润色</button>
+                        </div>
+                    </div>
+                    <button id="new-chat-btn" title="新对话">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- 侧边栏标签页 -->
@@ -109,6 +122,14 @@
                 </div>
 
                 <div class="messages" id="messages"></div>
+                <div class="selection-bar hidden" id="selection-bar">
+                    <span class="selection-count" id="selection-count">已选 0 条</span>
+                    <div class="selection-actions">
+                        <button class="selection-btn select-all-btn" id="select-all-btn">全选</button>
+                        <button class="selection-btn export-selected-btn" id="export-selected-btn">📄 导出选中</button>
+                        <button class="selection-btn cancel-btn" id="cancel-select-btn">取消</button>
+                    </div>
+                </div>
             </div>
 
             <!-- 输入区域 -->
@@ -119,6 +140,8 @@
                         <button class="agent-tab" data-mode="literature">📚 文献匹配</button>
                         <button class="agent-tab" data-mode="debate">⚔️ Idea 辨析</button>
                         <button class="agent-tab" data-mode="quiz">📝 求索解惑</button>
+                    </div>
+                    <div class="agent-bar-actions">
                     </div>
                     <div class="persona-switch" id="persona-switch" style="display:none;">
                         <span class="persona-label">人格：</span>
@@ -136,14 +159,29 @@
                     <div id="ref-tags" class="ref-tags"></div>
                     <textarea id="user-input" placeholder="描述你的研究课题..." rows="1" autofocus></textarea>
                     <input type="file" id="pdf-upload" accept=".pdf" hidden />
-                    <button id="pdf-btn" title="上传 PDF" class="pdf-upload-btn">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <button id="pdf-btn" title="上传 PDF" class="icon-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                             <polyline points="14 2 14 8 20 8"/>
                             <line x1="12" y1="18" x2="12" y2="12"/>
                             <line x1="9" y1="15" x2="15" y2="15"/>
                         </svg>
                     </button>
+                    <div class="export-dropdown-wrap">
+                        <button class="icon-btn" id="export-btn" title="导出对话">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </button>
+                        <div class="export-dropdown" id="export-dropdown">
+                            <button data-export="pdf-all">📄 PDF 导出全部</button>
+                            <button data-export="pdf-select">☐ PDF 选择导出</button>
+                            <button data-export="md-all">📝 Markdown 导出全部</button>
+                            <button data-export="md-select">☐ Markdown 选择导出</button>
+                        </div>
+                    </div>
                     <button id="send-btn" title="发送">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>

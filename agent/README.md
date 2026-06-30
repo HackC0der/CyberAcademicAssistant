@@ -7,6 +7,7 @@
 - **自然语言检索**：用中文或英文描述研究课题，AI 自动匹配相关论文
 - **语义理解**：TF-IDF 初筛 + LLM 语义排序，精准返回最相关论文
 - **ChatGPT 风格界面**：流式输出，实时显示匹配结果
+- **会话导出**：Markdown / PDF 导出，支持选择特定消息导出
 
 ## 快速开始
 
@@ -48,6 +49,7 @@ agent/
 ├── app.py              # Flask 主应用
 ├── paper_store.py      # 论文数据加载与索引
 ├── llm_client.py       # LLM API 调用封装
+├── pdf_export.py       # 会话导出 PDF/Markdown（MD→HTML→WeasyPrint）
 ├── requirements.txt    # Python 依赖
 ├── static/
 │   ├── style.css       # ChatGPT 风格 UI
@@ -55,3 +57,7 @@ agent/
 └── templates/
     └── index.html      # 主页面模板
 ```
+
+## 致谢
+
+- PDF 导出受 [md2pdf](https://github.com/jmaupetit/md2pdf) 项目启发，采用 Markdown → HTML → WeasyPrint 管线。

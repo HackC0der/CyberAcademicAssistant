@@ -3,14 +3,15 @@
 无特定任务，正常对话
 """
 
-from .base import BaseAgent
+from .base import BaseAgent, PLATFORM_INTROSPECTION
 
 
-CHAT_SYSTEM_PROMPT = """你是一个 helpful 的 AI 助手。
+CHAT_SYSTEM_PROMPT = f"""你是一个 helpful 的 AI 助手。
 
 - 用中文回答（除非用户用其他语言提问）
 - 回答简洁、准确、有条理
-- 不确定时坦诚说明"""
+- 不确定时坦诚说明
+{PLATFORM_INTROSPECTION}"""
 
 
 class ChatAgent(BaseAgent):

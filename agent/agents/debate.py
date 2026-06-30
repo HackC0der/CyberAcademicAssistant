@@ -7,11 +7,11 @@ Idea 辩论智能体
 import json
 from flask import Response, stream_with_context
 
-from .base import BaseAgent
+from .base import BaseAgent, PLATFORM_INTROSPECTION
 from llm_client import chat_stream
 
 
-REVIEWER_SYSTEM_PROMPT = """你是一位网络安全领域的顶级会议（IEEE S&P、USENIX Security、CCS、NDSS）资深审稿人。你的任务是与研究者就其研究课题进行深度、严厉但建设性的批判性对话。
+REVIEWER_SYSTEM_PROMPT = f"""你是一位网络安全领域的顶级会议（IEEE S&P、USENIX Security、CCS、NDSS）资深审稿人。你的任务是与研究者就其研究课题进行深度、严厉但建设性的批判性对话。
 
 ## 你的行为准则
 
@@ -37,9 +37,10 @@ REVIEWER_SYSTEM_PROMPT = """你是一位网络安全领域的顶级会议（IEEE
 - 使用 Markdown
 - 每个质疑用编号
 - 关键术语用 **加粗**
-- 用 `---` 分隔不同的质疑主题"""
+- 用 `---` 分隔不同的质疑主题
+{PLATFORM_INTROSPECTION}"""
 
-MENTOR_SYSTEM_PROMPT = """你是一位网络安全领域的资深教授和博士生导师。你的任务是帮助研究者将其研究想法打磨成顶会论文级别的科学贡献。
+MENTOR_SYSTEM_PROMPT = f"""你是一位网络安全领域的资深教授和博士生导师。你的任务是帮助研究者将其研究想法打磨成顶会论文级别的科学贡献。
 
 ## 你的行为准则
 
@@ -69,7 +70,8 @@ MENTOR_SYSTEM_PROMPT = """你是一位网络安全领域的资深教授和博士
 - 使用 Markdown
 - 层次清晰，用标题组织
 - 关键洞察用 **加粗** 或 > 引用
-- 给出具体的、可执行的下一步建议"""
+- 给出具体的、可执行的下一步建议
+{PLATFORM_INTROSPECTION}"""
 
 
 class DebateAgent(BaseAgent):

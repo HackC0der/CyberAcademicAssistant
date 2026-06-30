@@ -22,10 +22,19 @@ let sessionsCache = [];
 const activeRequests = new Map();
 let appConfig = {};
 
+const PLATFORMS = {
+    academic: { label: '🎓 学术智能体', icon: '🎓', agents: ['chat', 'literature', 'debate', 'quiz'] },
+    polish: { label: '📝 论文润色', icon: '📝', agents: ['chat'] },
+};
+let currentPlatform = 'academic';
+
+function getPlatformLabel(p) { return PLATFORMS[p]?.label || '🎓 学术智能体'; }
+
 // ========== 初始化 ==========
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
+    initPlatform();
     setupEventListeners();
     initResize();
     await loadConfig();
@@ -74,8 +83,34 @@ function setupEventListeners() {
         tab.addEventListener('click', () => switchSidebarTab(tab.dataset.tab));
     });
 
+    // 平台切换
+    document.getElementById('platform-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('platform-dropdown').classList.toggle('open');
+    });
+    document.querySelectorAll('#platform-dropdown button').forEach(btn => {
+        btn.addEventListener('click', () => switchPlatform(btn.dataset.platform));
+    });
+    document.addEventListener('click', () => { document.getElementById('platform-dropdown').classList.remove('open'); document.getElementById('export-dropdown').classList.remove('open'); });
+
     // 侧边栏收起/展开
     sidebarToggle.addEventListener('click', toggleSidebar);
+
+    // 导出
+    document.getElementById('export-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('export-dropdown').classList.toggle('open');
+    });
+    document.querySelectorAll('#export-dropdown button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('export-dropdown').classList.remove('open');
+            const action = btn.dataset.export;
+            if (action === 'pdf-all') exportAll('pdf');
+            else if (action === 'md-all') exportAll('md');
+            else if (action === 'pdf-select') toggleSelectMode('pdf');
+            else if (action === 'md-select') toggleSelectMode('md');
+        });
+    });
 
     // 设置保存
     document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
@@ -227,6 +262,48 @@ function applyTheme(theme) {
     });
 }
 
+// ========== 平台切换 ==========
+
+const PLATFORM_KEY = 'literature_agent_platform';
+
+function initPlatform() {
+    const saved = localStorage.getItem(PLATFORM_KEY) || 'academic';
+    setPlatform(saved);
+}
+
+function switchPlatform(platform) {
+    if (platform === currentPlatform || !PLATFORMS[platform]) return;
+    // 保存当前会话
+    if (currentSessionId) {
+        const session = getCachedSession(currentSessionId);
+        if (session) saveSession(session);
+    }
+    setPlatform(platform);
+    localStorage.setItem(PLATFORM_KEY, platform);
+    // 重新加载会话
+    loadAllSessions().then(() => {
+        renderSidebar();
+        if (sessionsCache.length > 0) switchSession(sessionsCache[0].id);
+        else newChat();
+    });
+}
+
+function setPlatform(platform) {
+    currentPlatform = platform;
+    const info = PLATFORMS[platform];
+    document.getElementById('platform-label').textContent = info.label;
+    document.getElementById('platform-dropdown').classList.remove('open');
+
+    // 只显示当前平台允许的智能体标签
+    document.querySelectorAll('.agent-tab').forEach(tab => {
+        tab.style.display = info.agents.includes(tab.dataset.mode) ? '' : 'none';
+    });
+    // 如果当前模式不在允许列表中，切换到第一个
+    if (!info.agents.includes(currentMode)) {
+        switchMode(info.agents[0]);
+    }
+}
+
 // ========== PDF 上传 ==========
 
 async function handlePdfUpload(e) {
@@ -235,8 +312,7 @@ async function handlePdfUpload(e) {
 
     // 确保有活跃会话
     if (!currentSessionId) {
-        const title = file.name.replace(/\.pdf$/i, '');
-        const newSess = await createSession(title);
+        const newSess = await createSession('新对话');
         if (!newSess) return;
         currentSessionId = newSess.id;
         welcomeScreen.classList.add('hidden');
@@ -259,9 +335,15 @@ async function handlePdfUpload(e) {
             text: data.text,
             pages: data.pages,
             text_length: data.text_length,
+            cache_key: data.cache_key || '',
             referenced: true,  // 首次上传默认引用
         };
         session.pdfs.push(pdf);
+
+        // 以 PDF 文件名更新标题，不覆盖已有人工设定的标题
+        if (session.title === '新对话' || !session.title) {
+            session.title = generateSessionTitle(session);
+        }
         await saveSession(session);
 
         // 渲染 PDF 气泡
@@ -363,8 +445,11 @@ function renderSessionPdfs(session) {
 // ========== 会话管理 ==========
 
 async function loadAllSessions() {
-    try { const r = await fetch('/api/sessions'); sessionsCache = await r.json(); }
-    catch { sessionsCache = []; }
+    try {
+        const r = await fetch('/api/sessions');
+        const all = await r.json();
+        sessionsCache = all.filter(s => (s.platform || 'academic') === currentPlatform);
+    } catch { sessionsCache = []; }
     return sessionsCache;
 }
 
@@ -396,7 +481,7 @@ async function createSession(title) {
     try {
         const r = await fetch('/api/sessions', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title }),
+            body: JSON.stringify({ title, platform: currentPlatform }),
         });
         const session = await r.json();
         sessionsCache.unshift(session);
@@ -404,11 +489,33 @@ async function createSession(title) {
     } catch (e) { console.error('创建会话失败:', e); return null; }
 }
 
-function generateSessionTitle(messages) {
-    const first = messages.find(m => m.role === 'user');
+const MODE_TITLE_PREFIX = {
+    chat: '',           // 💬 省略，避免标题过长
+    literature: '📚 ',
+    debate: '⚔️ ',
+    quiz: '📝 ',
+};
+
+function generateSessionTitle(session) {
+    const mode = session.mode || currentMode;
+    const prefix = MODE_TITLE_PREFIX[mode] || '';
+    const maxLen = 28;
+
+    // 1. 优先使用 PDF 文件名
+    const pdfs = session.pdfs || [];
+    const refPdfs = pdfs.filter(p => p.referenced);
+    if (refPdfs.length > 0) {
+        const name = refPdfs[0].filename.replace(/\.pdf$/i, '');
+        const full = prefix + name;
+        return full.length > maxLen ? full.slice(0, maxLen) + '...' : full;
+    }
+
+    // 2. 使用第一条用户消息
+    const first = (session.messages || []).find(m => m.role === 'user');
     if (!first) return '新对话';
     const text = first.content.trim();
-    return text.length > 28 ? text.slice(0, 28) + '...' : text;
+    const full = prefix + text;
+    return full.length > maxLen ? full.slice(0, maxLen) + '...' : full;
 }
 
 // ========== 侧边栏渲染 ==========
@@ -532,15 +639,17 @@ async function sendMessage() {
     welcomeScreen.classList.add('hidden');
 
     if (!currentSessionId) {
-        const title = generateSessionTitle([{ role: 'user', content: text }]);
-        const newSess = await createSession(title);
+        const newSess = await createSession('新对话');
         if (!newSess) return;
         currentSessionId = newSess.id;
     }
 
     const session = getCachedSession(currentSessionId);
     session.messages.push({ role: 'user', content: text });
-    if (session.messages.filter(m => m.role === 'user').length === 1) session.title = generateSessionTitle(session.messages);
+    // 首次发言时记录模式，标题由后续 LLM 摘要生成
+    if (session.messages.filter(m => m.role === 'user').length === 1 && (session.title === '新对话' || !session.title)) {
+        session.mode = currentMode;
+    }
     await saveSession(session);
 
     const requestPersona = currentPersona;
@@ -634,12 +743,26 @@ async function sendMessage() {
     }).catch(err => { if (err.name !== 'AbortError') { reqState.fullText = `<p style="color:#ef4444;">${err.message}</p>`; onComplete(sid); } });
 }
 
-function onComplete(sid) {
+async function onComplete(sid) {
     const req = activeRequests.get(sid);
     if (!req) return;
     if (currentSessionId === sid) { markProgressDone(req.progressEl); req.resultEl.innerHTML = renderMarkdown(req.fullText); }
     const session = getCachedSession(sid);
-    if (session && req.fullText) { session.messages.push({ role: 'assistant', content: req.fullText, persona: req.persona }); saveSession(session); }
+    if (session && req.fullText) {
+        session.messages.push({ role: 'assistant', content: req.fullText, persona: req.persona });
+        // 首次问答完成后，用 LLM 生成摘要标题
+        const userCount = session.messages.filter(m => m.role === 'user').length;
+        if (userCount === 1 && (session.title === '新对话' || !session.title)) {
+            try {
+                const r = await fetch(`/api/sessions/${session.id}/generate-title`, { method: 'POST' });
+                const data = await r.json();
+                session.title = data.title;
+            } catch (e) {
+                console.error('标题生成失败:', e);
+            }
+        }
+        saveSession(session);
+    }
     activeRequests.delete(sid); updateBtnState(); renderSidebar();
 }
 
@@ -671,10 +794,45 @@ function appendMessageToDOM(role, content, agentType) {
 
 function renderMarkdown(text) {
     if (!text) return '';
+
+    // ── 提取并渲染 LaTeX 公式 ──
+    const hasKatex = typeof katex !== 'undefined';
+    const rendered = {};
+    let idx = 0;
+
+    // 行间公式 $$...$$
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, formula) => {
+        const key = `__MATH_D_${idx++}__`;
+        try {
+            rendered[key] = hasKatex
+                ? katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false })
+                : `<div class="math-fallback">$$${formula.trim()}$$</div>`;
+        } catch { rendered[key] = `<div class="math-fallback">$$${formula.trim()}$$</div>`; }
+        return key;
+    });
+
+    // 行内公式 $...$
+    text = text.replace(/(?<!\$)\$(.+?)\$(?!\$)/g, (_, formula) => {
+        const key = `__MATH_I_${idx++}__`;
+        try {
+            rendered[key] = hasKatex
+                ? katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false })
+                : `<span class="math-fallback">$${formula.trim()}$</span>`;
+        } catch { rendered[key] = `<span class="math-fallback">$${formula.trim()}$</span>`; }
+        return key;
+    });
+
+    // ── Markdown 渲染 ──
     let html;
     if (typeof marked !== 'undefined') html = marked.parse(text);
     else html = text.replace(/\n/g, '<br>');
+
+    // ── 恢复公式 ──
+    html = html.replace(/__MATH_[DI]_\d+__/g, match => rendered[match] || match);
+
+    // ── 表格包裹 ──
     html = html.replace(/<table/g, '<div class="table-wrapper"><table').replace(/<\/table>/g, '</table></div>');
+
     return html;
 }
 
@@ -744,4 +902,107 @@ function markProgressDone(el) {
     el.classList.add('done');
     updateProgress(el, 100, '✅ 完成');
     setTimeout(() => { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 500); }, 1500);
+}
+
+// ========== 导出 PDF ==========
+
+let selectMode = false;
+let selectedIndices = new Set();
+let exportFormat = 'pdf';
+
+function toggleSelectMode(format) {
+    if (format) exportFormat = format;
+    selectMode = !selectMode;
+    const msgContainer = document.getElementById('messages');
+    const selectionBar = document.getElementById('selection-bar');
+
+    if (selectMode) {
+        selectedIndices.clear();
+        msgContainer.classList.add('select-mode');
+        document.querySelectorAll('.message:not(.pdf-bubble)').forEach((el, i) => {
+            el.classList.add('selectable');
+            el.dataset.msgIndex = i;
+            el.addEventListener('click', onMessageClick);
+        });
+        selectionBar.classList.remove('hidden');
+        updateSelectionCount();
+        document.getElementById('select-all-btn').onclick = selectAllMessages;
+        document.getElementById('cancel-select-btn').onclick = toggleSelectMode;
+        document.getElementById('export-selected-btn').onclick = exportSelected;
+    } else {
+        msgContainer.classList.remove('select-mode');
+        document.querySelectorAll('.message.selectable').forEach(el => {
+            el.classList.remove('selectable', 'selected');
+            el.removeEventListener('click', onMessageClick);
+        });
+        selectionBar.classList.add('hidden');
+    }
+}
+
+function onMessageClick(e) {
+    const el = e.currentTarget;
+    const idx = parseInt(el.dataset.msgIndex);
+    if (selectedIndices.has(idx)) {
+        selectedIndices.delete(idx);
+        el.classList.remove('selected');
+    } else {
+        selectedIndices.add(idx);
+        el.classList.add('selected');
+    }
+    updateSelectionCount();
+}
+
+function selectAllMessages() {
+    document.querySelectorAll('.message.selectable').forEach(el => {
+        const idx = parseInt(el.dataset.msgIndex);
+        selectedIndices.add(idx);
+        el.classList.add('selected');
+    });
+    updateSelectionCount();
+}
+
+function updateSelectionCount() {
+    document.getElementById('selection-count').textContent = `已选 ${selectedIndices.size} 条`;
+}
+
+async function downloadExport(indices, format) {
+    if (!currentSessionId) return;
+    const endpoint = format === 'md' ? 'export-md' : 'export-pdf';
+    const ext = format === 'md' ? '.md' : '.pdf';
+    try {
+        const resp = await fetch(`/api/sessions/${currentSessionId}/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(indices !== null ? { indices } : {}),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const session = getCachedSession(currentSessionId);
+        a.download = (session?.title || '对话导出') + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert(`导出失败: ${e.message}`);
+    }
+}
+
+function exportAll(format) {
+    if (!currentSessionId) return;
+    if (selectMode) toggleSelectMode();
+    downloadExport(null, format || 'pdf');
+}
+
+function exportSelected() {
+    if (selectedIndices.size === 0) {
+        alert('请先选择要导出的消息');
+        return;
+    }
+    const indices = [...selectedIndices].sort((a, b) => a - b);
+    downloadExport(indices, exportFormat);
+    toggleSelectMode();
 }
