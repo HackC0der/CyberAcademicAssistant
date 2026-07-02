@@ -13,19 +13,34 @@
 ## 目录结构
 
 ```
-├── crawlers/           # 四个会议的爬虫脚本
-├── agent/              # 智能体平台
-│   ├── agents/         # 可插拔智能体模块
-│   │   ├── base.py     # BaseAgent 基类
+├── crawlers/               # 四个会议的爬虫脚本
+├── agent/                  # 智能体平台
+│   ├── agents/             # 可插拔智能体模块
+│   │   ├── base.py         # BaseAgent 基类
 │   │   ├── literature.py
 │   │   └── debate.py
-│   ├── app.py          # Flask 入口
-│   ├── llm_client.py   # LLM API
-│   ├── paper_store.py  # TF-IDF 论文检索
-│   ├── pdf_utils.py    # PDF 解析
-│   └── config.json     # LLM 配置
-├── NDSS/ USENIX/ S&P/ CCS/  # 论文数据
+│   ├── app.py              # Flask 入口
+│   ├── llm_client.py       # LLM API
+│   ├── paper_store.py      # TF-IDF 论文检索（从 security-top4-papers.json 加载）
+│   ├── pdf_utils.py        # PDF 解析
+│   └── config.json         # LLM 配置
+├── NDSS/ USENIX/ S&P/ CCS/ # 论文数据（旧格式，仅向后兼容）
+├── security-top4-papers.json  # 统一数据集（3347 篇，96% 含摘要）
+├── export_all.py              # 导出统一 JSON
+├── enrich_abstracts.py        # 摘要补全脚本
+├── verify_links.py            # PDF 链接验证
 └── crawl_all.sh
+```
+
+## 数据源
+
+`agent/paper_store.py` 优先加载 `security-top4-papers.json`（来自 [security-top4-papers](https://github.com/HackC0der/security-top4-papers) 数据集）。若文件不存在则降级解析 `NDSS/` `CCS/` `S&P/` `USENIX/` 目录下的旧格式 `abstracts.md`。
+
+如需更新数据：
+```bash
+# 从 security-top4-papers 仓库同步后
+cp /path/to/security-top4-papers/security-top4-papers.json .
+uv run python export_all.py  # 重新生成
 ```
 
 ## 常用命令

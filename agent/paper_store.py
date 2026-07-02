@@ -21,6 +21,7 @@ class Paper:
     year: int
     title: str
     abstract: str
+    pdf_url: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -28,6 +29,7 @@ class Paper:
             "year": self.year,
             "title": self.title,
             "abstract": self.abstract,
+            "pdf_url": self.pdf_url,
         }
 
 
@@ -43,12 +45,44 @@ class PaperStore:
     def load(self) -> int:
         """加载所有论文数据，返回论文总数"""
         self.papers = []
-        self._load_conference("NDSS", "NDSS")
-        self._load_conference("USENIX", "USENIX")
-        self._load_conference("S&P", "S&P")
-        self._load_conference("CCS", "CCS")
+
+        # 优先加载统一 JSON（含完整摘要和 PDF 链接）
+        json_path = self.data_dir / "security-top4-papers.json"
+        if json_path.exists():
+            self._load_from_json(json_path)
+        else:
+            # 降级：解析旧的 abstracts.md 文件
+            self._load_conference("NDSS", "NDSS")
+            self._load_conference("USENIX", "USENIX")
+            self._load_conference("S&P", "S&P")
+            self._load_conference("CCS", "CCS")
+
         self._build_index()
         return len(self.papers)
+
+    def _load_from_json(self, json_path: Path) -> None:
+        """从 security-top4-papers.json 加载论文数据"""
+        import json
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"  [警告] 无法读取 {json_path}: {e}")
+            return
+
+        count = 0
+        for item in data.get("papers", []):
+            self.papers.append(Paper(
+                conference=item.get("venue", ""),
+                year=item.get("year", 0),
+                title=item.get("title", ""),
+                abstract=item.get("abstract", ""),
+                pdf_url=item.get("pdf_url", ""),
+            ))
+            count += 1
+
+        meta = data.get("meta", {})
+        print(f"  从统一 JSON 加载 {count} 篇论文 (版本 {meta.get('version', '?')}, "
+              f"生成日期 {meta.get('generated', '?')})")
 
     def _load_conference(self, conf_name: str, dir_name: str) -> None:
         """加载单个会议的论文"""

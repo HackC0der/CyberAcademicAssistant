@@ -1,0 +1,27 @@
+name: Weekly Link Verification
+
+on:
+  schedule:
+    # Every Monday at 9:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  verify-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Verify PDF links
+        run: python verify_links.py --sample 50 --timeout 10
+
+      - name: Export unified JSON
+        run: python export_all.py --output security-top4-papers.json
